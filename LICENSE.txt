@@ -1,0 +1,19 @@
+Copyright (c) 2025 dawciobiel
+
+All rights reserved.
+
+This software is proprietary and is distributed in binary form only. The source code is not publicly available.
+
+Permission is hereby granted to individuals to use this software free of charge for personal, educational, and non-commercial purposes only.
+
+You are NOT allowed to:
+- Modify, reverse engineer, or decompile this software;
+- Distribute or share this software without explicit written permission;
+- Use this software in any commercial product, service, or environment.
+
+This software is provided "as is", without warranty of any kind, express or implied.
+
+By using this software, you agree to the terms above.
+
+For commercial licensing or other inquiries, please contact:
+https://github.com/dawciobiel/javafx-pacman-game
