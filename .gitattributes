@@ -1,0 +1,15 @@
+# Windows script files – keep CRLF
+*.bat text eol=crlf
+
+# Gradle wrapper (Windows script) – CRLF
+*.bat text eol=crlf
+
+# Unix script – LF
+*.sh text eol=lf
+
+# Java source – LF
+*.java text eol=lf
+
+# All other – auto (depend from system and git config)
+* text=auto
+

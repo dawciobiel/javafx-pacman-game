@@ -41,6 +41,12 @@ bin/
 ### Mac OS ###
 .DS_Store
 
+### Systems
+Thumbs.db
+
+# target
+target/
+
 # Compiled class file
 *.class
 
