@@ -16,4 +16,8 @@ module com.dawciobiel.pacman {
 
     opens com.dawciobiel.pacman to javafx.fxml;
     exports com.dawciobiel.pacman;
+    exports com.dawciobiel.pacman.utils;
+    opens com.dawciobiel.pacman.utils to javafx.fxml;
+    exports com.dawciobiel.pacman.sound;
+    opens com.dawciobiel.pacman.sound to javafx.fxml;
 }

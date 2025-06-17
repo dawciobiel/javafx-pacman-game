@@ -1,5 +1,7 @@
 package com.dawciobiel.pacman;
 
+
+import com.dawciobiel.pacman.sound.SoundManager;
 import javafx.animation.AnimationTimer;
 import javafx.application.Application;
 import javafx.scene.Scene;
@@ -11,33 +13,20 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.ArcType;
 import javafx.scene.text.Font;
 import javafx.stage.Stage;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 
-import static com.dawciobiel.pacman.PacmanGame.BOARD_COLS;
-import static com.dawciobiel.pacman.PacmanGame.BOARD_ROWS;
-import static com.dawciobiel.pacman.PacmanGame.SCATTER_TARGETS;
+import com.dawciobiel.pacman.utils.Direction;
+import com.dawciobiel.pacman.utils.GhostMode;
+import com.dawciobiel.pacman.entities.Food;
+import com.dawciobiel.pacman.entities.Player;
+import com.dawciobiel.pacman.entities.Ghost;
+import com.dawciobiel.pacman.entities.PowerPellet;
+import com.dawciobiel.pacman.game.CollisionDetector;
 
-
-enum Direction {
-    UP(0, -1), DOWN(0, 1), LEFT(-1, 0), RIGHT(1, 0);
-
-    public final int dx;
-    public final int dy;
-
-    Direction(final int dx, final int dy) {
-        this.dx = dx;
-        this.dy = dy;
-    }
-}
-
-enum GhostMode {
-    NORMAL, FRIGHTENED, SCATTER, CHASE, DEAD
-}
 
 public class PacmanGame extends Application {
 
@@ -57,17 +46,17 @@ public class PacmanGame extends Application {
             144 FPS: 6_944_444 (6.94ms)
      */
     private static final long UPDATE_INTERVAL = 16_666_667;
-    static final double MOVEMENT_SPEED = 0.2;
+    public static final double MOVEMENT_SPEED = 0.2;
 
-    static final int TILE_SIZE = 50;
+    public static final int TILE_SIZE = 50;
     // OPTYMALIZACJA: Re-używalne obiekty
-    static final Random SHARED_RANDOM = new Random();
+    public static final Random SHARED_RANDOM = new Random();
     private static final int BOARD_WIDTH = 1200;
-    static final int BOARD_COLS = BOARD_WIDTH / TILE_SIZE;
+    public static final int BOARD_COLS = BOARD_WIDTH / TILE_SIZE;
     private static final int BOARD_HEIGHT = 800;
-    static final int BOARD_ROWS = BOARD_HEIGHT / TILE_SIZE;
+    public static final int BOARD_ROWS = BOARD_HEIGHT / TILE_SIZE;
     // Pozycje rogów dla scatter mode
-    protected static final int[][] SCATTER_TARGETS = {{BOARD_COLS - 1, 0},        // czerwony — prawy górny
+    public static final int[][] SCATTER_TARGETS = {{BOARD_COLS - 1, 0},        // czerwony — prawy górny
             {0, 0},                     // różowy — lewy górny
             {BOARD_COLS - 1, BOARD_ROWS - 1}, // cyan — prawy dolny
             {0, BOARD_ROWS - 1}         // pomarańczowy — lewy dolny
@@ -82,22 +71,22 @@ public class PacmanGame extends Application {
     // OPTYMALIZACJA: Bufory do wielokrotnego użytku
     private final List<int[]> stackBuffer = new ArrayList<>(100);
     private final List<int[]> neighborsBuffer = new ArrayList<>(4);
-    private SoundManager soundManager;
+    public SoundManager soundManager;
     private Canvas canvas;
     private GraphicsContext gc;
     private AnimationTimer gameLoop;
-    private Player pacman;
-    private List<Ghost> ghosts;
-    private List<Food> foods;
-    private List<PowerPellet> powerPellets;
+    public Player pacman;
+    public List<Ghost> ghosts;
+    public List<Food> foods;
+    public List<PowerPellet> powerPellets;
     private boolean[][] walls;
-    private int score = 0;
-    private int lives = 3;
-    private boolean gameOver = false;
+    public int score = 0;
+    public int lives = 3;
+    public boolean gameOver = false;
     private boolean gameWon = false;
-    private long powerPelletStartTime = 0;
-    private boolean isPowerPelletActive = false;
-    private int ghostMultiplier = 2; // Mnożnik punktów za duchy
+    public long powerPelletStartTime = 0;
+    public boolean isPowerPelletActive = false;
+    public int ghostMultiplier = 2; // Mnożnik punktów za duchy
 
     public static void main(final String[] args) {
         launch(args);
@@ -439,52 +428,26 @@ public class PacmanGame extends Application {
         }
 
         // As an optimization, check the collisions with food only when Pacman is in the center of the field
-        checkCollisionWithFood(currentTime);
+        CollisionDetector.checkCollisionWithFood(this, currentTime);
 
         // Check collisions with ghosts
-        if (checkCollisionsWithGhosts()) return;
+        if (CollisionDetector.checkCollisionsWithGhosts(this)) {
+            return;
+        }
 
         // Check winning conditions
         checkWinningConditions();
     }
 
-    private void checkCollisionWithFood(long currentTime) {
-        if (pacman.isAtTileCenter()) {
-            // Check collisions with food
-            Iterator<Food> foodIterator = foods.iterator();
-            while (foodIterator.hasNext()) {
-                Food food = foodIterator.next();
-                eatFood(food, foodIterator);
-            }
 
-            // Check collisions with power pellets
-            Iterator<PowerPellet> powerPelletIterator = powerPellets.iterator();
-            while (powerPelletIterator.hasNext()) {
-                PowerPellet powerPellet = powerPelletIterator.next();
-                if (powerPellet.x() == pacman.getTileX() && powerPellet.y() == pacman.getTileY()) {
-                    score += 50;
-                    powerPelletIterator.remove();
-                    soundManager.playSound("power_pellet");
 
-                    // Aktywuj power pellet
-                    isPowerPelletActive = true;
-                    powerPelletStartTime = currentTime;
-                    ghostMultiplier = 1;
-
-                    // Zmień tryb duchów na frightened
-                    changeGhostsMode(GhostMode.FRIGHTENED);
-                }
-            }
-        }
-    }
-
-    private void changeGhostsMode(GhostMode ghostMode) {
+    public void changeGhostsMode(GhostMode ghostMode) {
         for (Ghost ghost : ghosts) {
             ghost.setMode(ghostMode);
         }
     }
 
-    private void eatFood(Food food, Iterator<Food> foodIterator) {
+    public void eatFood(Food food, Iterator<Food> foodIterator) {
         if (food.x() == pacman.getTileX() && food.y() == pacman.getTileY()) {
             score += 10;
             foodIterator.remove();
@@ -492,60 +455,31 @@ public class PacmanGame extends Application {
         }
     }
 
-    private boolean checkCollisionsWithGhosts() {
-        Iterator<Ghost> ghostIterator = ghosts.iterator();
-        while (ghostIterator.hasNext()) {
-            Ghost ghost = ghostIterator.next();
-            double dx = ghost.getDrawX() - pacman.getDrawX();
-            double dy = ghost.getDrawY() - pacman.getDrawY();
-            double distanceSquared = dx * dx + dy * dy;
-
-            if (distanceSquared < (TILE_SIZE * 0.8) * (TILE_SIZE * 0.8)) {
-                if (isPowerPelletActive && ghost.getMode() == GhostMode.FRIGHTENED) {
-                    eatGhost(ghost);
-                } else if (ghost.getMode() != GhostMode.DEAD) { // Nie zabijaj, jeśli duch jest martwy
-                    executePacmanIsDead();
-                    if (lives <= 0) {
-                        executePacmanIsDeadAndNoMoreLives(gameOver, "game_over");
-                        return true;
-                    } else {
-                        // Restart pozycji
-                        resetPacmanPosition();
-
-                        // Przywróć atakujący tryb duchów
-                        changeGhostsMode(GhostMode.SCATTER);
-                    }
-                }
-            }
-        }
-        return false;
-    }
-
     /**
      * Pacman zjada ducha
      *
      * @param ghost
      */
-    private void eatGhost(Ghost ghost) {
+    public void eatGhost(Ghost ghost) {
         score += GHOST_POINTS * ghostMultiplier;
         ghostMultiplier *= 2;
         soundManager.playSound("ghost_eaten");
         ghost.setModeDead();
     }
 
-    private void resetPacmanPosition() {
+    public void resetPacmanPosition() {
         pacman.reset(1, 1);
         isPowerPelletActive = false;
         ghostMultiplier = 1;
     }
 
-    private void executePacmanIsDeadAndNoMoreLives(boolean gameOver, String game_over) {
+    public void executePacmanIsDeadAndNoMoreLives(boolean gameOver, String game_over) {
         this.gameOver = true;
         soundManager.playSound(game_over);
         gameLoop.stop();
     }
 
-    private void executePacmanIsDead() {
+    public void executePacmanIsDead() {
         lives--;
         soundManager.playSound("death");
     }
@@ -682,552 +616,4 @@ public class PacmanGame extends Application {
         }
         super.stop();
     }
-}
-
-class Player {
-    private static final double ANIMATION_SPEED = 0.15;
-    private double x;
-    private double y;
-    private int tileX;
-    private int tileY;
-    private Direction direction = Direction.RIGHT;
-    private Direction queuedDirection = null;
-    private boolean isMoving = false;
-    private double moveProgress = 0.0;
-    private double animationTime = 0.0;
-
-    public Player(int startX, int startY) {
-        this.tileX = startX;
-        this.tileY = startY;
-        this.x = startX * PacmanGame.TILE_SIZE + PacmanGame.TILE_SIZE * 0.5;
-        this.y = startY * PacmanGame.TILE_SIZE + PacmanGame.TILE_SIZE * 0.5;
-    }
-
-    public void reset(final int newX, final int newY) {
-        this.tileX = newX;
-        this.tileY = newY;
-        this.x = newX * PacmanGame.TILE_SIZE + PacmanGame.TILE_SIZE * 0.5;
-        this.y = newY * PacmanGame.TILE_SIZE + PacmanGame.TILE_SIZE * 0.5;
-        this.direction = Direction.RIGHT;
-        this.queuedDirection = null;
-        this.isMoving = false;
-        this.moveProgress = 0.0;
-        this.animationTime = 0.0;
-    }
-
-    public void draw(GraphicsContext gc) {
-        double startAngle = switch (direction) {
-            case RIGHT -> 0;
-            case DOWN -> 270;
-            case LEFT -> 180;
-            case UP -> 90;
-        };
-
-        double mouthAngle = 45 * Math.sin(animationTime * Math.PI * 2);
-        if (mouthAngle < 0) mouthAngle = 0;
-
-        double drawX = getDrawX() - PacmanGame.TILE_SIZE * 0.5 + 2;
-        double drawY = getDrawY() - PacmanGame.TILE_SIZE * 0.5 + 2;
-        double size = PacmanGame.TILE_SIZE - 4;
-
-        gc.setFill(Color.YELLOW);
-
-        if (mouthAngle > 0) {
-            gc.fillArc(drawX, drawY, size, size, startAngle + mouthAngle * 0.5, 360 - mouthAngle, ArcType.ROUND);
-        } else {
-            gc.fillOval(drawX, drawY, size, size);
-        }
-    }
-
-    public void update(boolean[][] walls) {
-        if (isMoving) {
-            animationTime += ANIMATION_SPEED;
-            if (animationTime >= 1.0) {
-                animationTime = 0.0;
-            }
-        }
-
-        if (queuedDirection != null && !isMoving) {
-            if (canMove(queuedDirection, walls)) {
-                direction = queuedDirection;
-                queuedDirection = null;
-                startMoving();
-            }
-        }
-
-        if (!isMoving && canMove(direction, walls)) {
-            startMoving();
-        }
-
-        if (isMoving) {
-            moveProgress += PacmanGame.MOVEMENT_SPEED;
-
-            if (moveProgress >= 1.0) {
-                completeMove();
-                moveProgress = 0.0;
-                isMoving = false;
-                handleTunnels();
-            } else {
-                updateInterpolatedPosition();
-            }
-        }
-    }
-
-    private void startMoving() {
-        isMoving = true;
-        moveProgress = 0.0;
-    }
-
-    private void completeMove() {
-        tileX += direction.dx;
-        tileY += direction.dy;
-
-        x = tileX * PacmanGame.TILE_SIZE + PacmanGame.TILE_SIZE * 0.5;
-        y = tileY * PacmanGame.TILE_SIZE + PacmanGame.TILE_SIZE * 0.5;
-    }
-
-    private void updateInterpolatedPosition() {
-        double startX = tileX * PacmanGame.TILE_SIZE + PacmanGame.TILE_SIZE * 0.5;
-        double startY = tileY * PacmanGame.TILE_SIZE + PacmanGame.TILE_SIZE * 0.5;
-
-        double targetX = startX + direction.dx * PacmanGame.TILE_SIZE;
-        double targetY = startY + direction.dy * PacmanGame.TILE_SIZE;
-
-        x = startX + (targetX - startX) * moveProgress;
-        y = startY + (targetY - startY) * moveProgress;
-    }
-
-    private boolean canMove(Direction dir, boolean[][] walls) {
-        int nextX = tileX + dir.dx;
-        int nextY = tileY + dir.dy;
-
-        if (nextX < 0 || nextX >= walls.length || nextY < 0 || nextY >= walls[0].length) {
-            return (nextX < 0 || nextX >= walls.length) && nextY == BOARD_ROWS / 2;
-        }
-
-        return !walls[nextX][nextY];
-    }
-
-    private void handleTunnels() {
-        if (tileX < 0) {
-            tileX = BOARD_COLS - 1;
-            x = tileX * PacmanGame.TILE_SIZE + PacmanGame.TILE_SIZE * 0.5;
-        } else if (tileX >= BOARD_COLS) {
-            tileX = 0;
-            x = tileX * PacmanGame.TILE_SIZE + PacmanGame.TILE_SIZE * 0.5;
-        }
-    }
-
-    public void queueDirection(Direction newDirection) {
-        this.queuedDirection = newDirection;
-    }
-
-    public boolean isAtTileCenter() {
-        return !isMoving;
-    }
-
-    public double getDrawX() {
-        return x;
-    }
-
-    public double getDrawY() {
-        return y;
-    }
-
-    public int getTileX() {
-        return tileX;
-    }
-
-    public int getTileY() {
-        return tileY;
-    }
-
-    public Direction getDirection() {
-        return direction;
-    }
-}
-
-class Ghost {
-
-    private static final int SCATTER_DURATION = 420; // 7 sekund * 60 FPS
-    private static final int CHASE_DURATION = 1200;  // 20 sekund * 60 FPS
-    private static final int HOME_X = BOARD_COLS / 2;
-    private static final int HOME_Y = BOARD_ROWS / 2;
-    private final Color originalColor;
-    private final List<Direction> validDirections = new ArrayList<>(4);
-    private final int scatterTargetX;
-    private final int scatterTargetY;
-    private final int ghostIndex; // 0-3 dla różnych strategii
-    private double x;
-    private double y;
-    private int tileX;
-    private int tileY;
-    private Direction direction;
-    private boolean isMoving = false;
-    private double moveProgress = 0.0;
-    private GhostMode mode = GhostMode.SCATTER;
-    private int modeTimer = 0;
-
-
-    public Ghost(int startX, int startY, Color color) {
-        this.tileX = startX;
-        this.tileY = startY;
-        this.x = startX * PacmanGame.TILE_SIZE + PacmanGame.TILE_SIZE * 0.5;
-        this.y = startY * PacmanGame.TILE_SIZE + PacmanGame.TILE_SIZE * 0.5;
-        this.originalColor = color;
-        this.direction = Direction.values()[PacmanGame.SHARED_RANDOM.nextInt(4)];
-        // Przypisz indeks na podstawie koloru
-        if (color.equals(Color.RED)) this.ghostIndex = 0;
-        else if (color.equals(Color.PINK)) this.ghostIndex = 1;
-        else if (color.equals(Color.CYAN)) this.ghostIndex = 2;
-        else this.ghostIndex = 3;
-
-        // Przypisz cel scatter
-        this.scatterTargetX = SCATTER_TARGETS[ghostIndex][0];
-        this.scatterTargetY = SCATTER_TARGETS[ghostIndex][1];
-
-    }
-
-    // Metoda do zarządzania stanami
-    private void updateMode() {
-        if (mode == GhostMode.FRIGHTENED || mode == GhostMode.DEAD) {
-            return; // Nie zmieniaj automatycznie w tych trybach
-        }
-
-        modeTimer++;
-
-        if (mode == GhostMode.SCATTER && modeTimer >= SCATTER_DURATION) {
-            mode = GhostMode.CHASE;
-            modeTimer = 0;
-        } else if (mode == GhostMode.CHASE && modeTimer >= CHASE_DURATION) {
-            mode = GhostMode.SCATTER;
-            modeTimer = 0;
-        }
-    }
-
-    // Metoda do wybierania celu
-    private int[] getTarget(int pacmanX, int pacmanY, Direction pacmanDirection) {
-        switch (mode) {
-            case SCATTER:
-                return new int[]{scatterTargetX, scatterTargetY};
-
-            case CHASE:
-                return getChaseTarget(pacmanX, pacmanY, pacmanDirection);
-
-            case FRIGHTENED:
-                return null; // Losowy ruch
-
-            case DEAD:
-                return new int[]{HOME_X, HOME_Y};
-
-            default:
-                return new int[]{scatterTargetX, scatterTargetY};
-        }
-    }
-
-    // Metoda do strategii ścigania
-    private int[] getChaseTarget(int pacmanX, int pacmanY, Direction pacmanDirection) {
-        switch (ghostIndex) {
-            case 0: // Czerwony (Blinky) - bezpośrednio do Pacmana
-                return new int[]{pacmanX, pacmanY};
-
-            case 1: // Różowy (Pinky) - 4 pola przed Pacmanem
-                int targetX = pacmanX;
-                int targetY = pacmanY;
-                switch (pacmanDirection) {
-                    case LEFT:
-                        targetX -= 4;
-                        break;
-                    case RIGHT:
-                        targetX += 4;
-                        break;
-                    case UP:
-                        targetY -= 4;
-                        break;
-                    case DOWN:
-                        targetY += 4;
-                        break;
-                }
-                return new int[]{targetX, targetY};
-
-            case 2: // Cyan (Inky) - 2 pola przed Pacmanem
-                targetX = pacmanX;
-                targetY = pacmanY;
-                switch (pacmanDirection) {
-                    case LEFT:
-                        targetX -= 2;
-                        break;
-                    case RIGHT:
-                        targetX += 2;
-                        break;
-                    case UP:
-                        targetY -= 2;
-                        break;
-                    case DOWN:
-                        targetY += 2;
-                        break;
-                }
-                return new int[]{targetX, targetY};
-
-            case 3: // Pomarańczowy (Clyde) - jeśli daleko to jak Blinky, jeśli blisko to scatter
-                double distance = Math.sqrt((tileX - pacmanX) * (tileX - pacmanX) + (tileY - pacmanY) * (tileY - pacmanY));
-                if (distance > 8) {
-                    return new int[]{pacmanX, pacmanY};
-                } else {
-                    return new int[]{scatterTargetX, scatterTargetY};
-                }
-
-            default:
-                return new int[]{pacmanX, pacmanY};
-        }
-    }
-
-    // Metoda do ruchu w kierunku celu
-    private Direction getBestDirectionToTarget(int[] target, boolean[][] walls) {
-        if (target == null) return null;
-
-        Direction bestDirection = direction;
-        double shortestDistance = Double.MAX_VALUE;
-
-        for (Direction dir : Direction.values()) {
-            // Nie cofaj się (chyba że musisz)
-            if (getOppositeDirection(dir) == direction && validDirections.size() > 1) {
-                continue;
-            }
-
-            if (canMove(dir, walls)) {
-                int nextX = tileX + dir.dx;
-                int nextY = tileY + dir.dy;
-                double distance = Math.sqrt((nextX - target[0]) * (nextX - target[0]) + (nextY - target[1]) * (nextY - target[1]));
-
-                if (distance < shortestDistance) {
-                    shortestDistance = distance;
-                    bestDirection = dir;
-                }
-            }
-        }
-
-        return bestDirection;
-    }
-
-    // Metoda pomocnicza dla kierunków przeciwnych
-    private Direction getOppositeDirection(Direction dir) {
-        switch (dir) {
-            case UP:
-                return Direction.DOWN;
-            case DOWN:
-                return Direction.UP;
-            case LEFT:
-                return Direction.RIGHT;
-            case RIGHT:
-                return Direction.LEFT;
-            default:
-                return dir;
-        }
-    }
-
-
-    public void respawn(int newX, int newY) {
-        this.tileX = newX;
-        this.tileY = newY;
-        this.x = newX * PacmanGame.TILE_SIZE + PacmanGame.TILE_SIZE * 0.5;
-        this.y = newY * PacmanGame.TILE_SIZE + PacmanGame.TILE_SIZE * 0.5;
-        this.isMoving = false;
-        this.moveProgress = 0.0;
-        this.mode = GhostMode.SCATTER;
-        this.modeTimer = 0;
-    }
-
-    public void update(boolean[][] walls, int pacmanX, int pacmanY, boolean isPowerPelletActive, Direction pacmanDirection) {
-        if (mode != GhostMode.FRIGHTENED) {
-            updateMode();
-        }
-
-        // Sprawdź, czy duch w trybie DEAD dotarł do "domu"
-        if (mode == GhostMode.DEAD) {
-            if (Math.abs(tileX - HOME_X) <= 1 && Math.abs(tileY - HOME_Y) <= 1) {
-                mode = GhostMode.SCATTER;
-                modeTimer = 0;
-            }
-        }
-
-        if (!isMoving) {
-            chooseDirection(walls, pacmanX, pacmanY, pacmanDirection);
-            if (canMove(direction, walls)) {
-                startMoving();
-            }
-        }
-
-        if (isMoving) {
-            moveProgress += PacmanGame.MOVEMENT_SPEED;
-            if (moveProgress >= 1.0) {
-                completeMove();
-                moveProgress = 0.0;
-                isMoving = false;
-                handleTunnels();
-            } else {
-                updateInterpolatedPosition();
-            }
-        }
-    }
-
-    public void setModeDead() {
-        this.mode = GhostMode.DEAD;
-        this.modeTimer = 0;
-    }
-
-    private void chooseDirection(boolean[][] walls, int pacmanX, int pacmanY, Direction pacmanDirection) {
-        validDirections.clear();
-        chooseAllValidDirections(walls);
-
-        if (!validDirections.isEmpty()) {
-            if (mode == GhostMode.FRIGHTENED) {
-                chooseDirectionInFrightenedMode(pacmanX, pacmanY);
-            } else {
-                chooseDirectionInScatterChaseDeadModes(walls, pacmanX, pacmanY, pacmanDirection);
-            }
-        }
-    }
-
-    /**
-     * Wybierz kierunek ruchu dla trybów [ Scatter, Chase, Dead modes ]
-     *
-     * @param walls
-     * @param pacmanX
-     * @param pacmanY
-     * @param pacmanDirection
-     */
-    private void chooseDirectionInScatterChaseDeadModes(boolean[][] walls, int pacmanX, int pacmanY, Direction pacmanDirection) {
-        int[] target = getTarget(pacmanX, pacmanY, pacmanDirection);
-        Direction bestDirection = getBestDirectionToTarget(target, walls);
-
-        if (bestDirection != null && validDirections.contains(bestDirection)) {
-            direction = bestDirection;
-        } else {
-            // Fallback — kontynuuj obecny kierunek lub wybierz losowy
-            if (PacmanGame.SHARED_RANDOM.nextInt(10) < 7 && validDirections.contains(direction)) {
-                // Kontynuuj obecny kierunek
-            } else {
-                direction = validDirections.get(PacmanGame.SHARED_RANDOM.nextInt(validDirections.size()));
-            }
-        }
-    }
-
-    /**
-     * Unikaj Pacmana
-     *
-     * @param pacmanX
-     * @param pacmanY
-     */
-    private void chooseDirectionInFrightenedMode(int pacmanX, int pacmanY) {
-        Direction bestDirection = getBestDirection(pacmanX, pacmanY);
-        if (bestDirection != null) {
-            direction = bestDirection;
-        } else {
-            direction = validDirections.get(PacmanGame.SHARED_RANDOM.nextInt(validDirections.size()));
-        }
-    }
-
-    private void chooseAllValidDirections(boolean[][] walls) {
-        for (Direction direct : Direction.values()) {
-            if (canMove(direct, walls)) {
-                validDirections.add(direct);
-            }
-        }
-    }
-
-    @Nullable
-    private Direction getBestDirection(int pacmanX, int pacmanY) {
-        Direction bestDirection = null;
-        double maxDistance = -1;
-        for (Direction dir : validDirections) {
-            int nextX = tileX + dir.dx;
-            int nextY = tileY + dir.dy;
-            double distance = Math.sqrt((nextX - pacmanX) * (nextX - pacmanX) + (nextY - pacmanY) * (nextY - pacmanY));
-            if (distance > maxDistance) {
-                maxDistance = distance;
-                bestDirection = dir;
-            }
-        }
-        return bestDirection;
-    }
-
-    private void startMoving() {
-        isMoving = true;
-        moveProgress = 0.0;
-    }
-
-    private void completeMove() {
-        tileX += direction.dx;
-        tileY += direction.dy;
-
-        x = tileX * PacmanGame.TILE_SIZE + PacmanGame.TILE_SIZE * 0.5;
-        y = tileY * PacmanGame.TILE_SIZE + PacmanGame.TILE_SIZE * 0.5;
-    }
-
-    private void updateInterpolatedPosition() {
-        double startX = tileX * PacmanGame.TILE_SIZE + PacmanGame.TILE_SIZE * 0.5;
-        double startY = tileY * PacmanGame.TILE_SIZE + PacmanGame.TILE_SIZE * 0.5;
-
-        double targetX = startX + direction.dx * PacmanGame.TILE_SIZE;
-        double targetY = startY + direction.dy * PacmanGame.TILE_SIZE;
-
-        x = startX + (targetX - startX) * moveProgress;
-        y = startY + (targetY - startY) * moveProgress;
-    }
-
-    private boolean canMove(final Direction dir, final boolean[][] walls) {
-        int nextX = tileX + dir.dx;
-        int nextY = tileY + dir.dy;
-
-        if (nextX < 0 || nextX >= walls.length || nextY < 0 || nextY >= walls[0].length) {
-            return (nextX < 0 || nextX >= walls.length) && nextY == BOARD_ROWS / 2;
-        }
-
-        return !walls[nextX][nextY];
-    }
-
-    private void handleTunnels() {
-        if (tileX < 0) {
-            tileX = BOARD_COLS - 1;
-            x = tileX * PacmanGame.TILE_SIZE + PacmanGame.TILE_SIZE * 0.5;
-        } else if (tileX >= BOARD_COLS) {
-            tileX = 0;
-            x = tileX * PacmanGame.TILE_SIZE + PacmanGame.TILE_SIZE * 0.5;
-        }
-    }
-
-    public GhostMode getMode() {
-        return mode;
-    }
-
-    public void setMode(final GhostMode newMode) {
-        this.mode = newMode;
-    }
-
-    public double getDrawX() {
-        return x;
-    }
-
-    public double getDrawY() {
-        return y;
-    }
-
-    public int getTileX() {
-        return tileX;
-    }
-
-    public int getTileY() {
-        return tileY;
-    }
-
-    public Color getColor() {
-        return originalColor;
-    }
-}
-
-record Food(int x, int y) {
-}
-
-record PowerPellet(int x, int y) {
 }
