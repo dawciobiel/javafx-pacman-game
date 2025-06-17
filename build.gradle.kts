@@ -139,8 +139,7 @@ jlink {
                 installerOptions.addAll(
                     listOf(
                         "--linux-shortcut",        // Create .desktop shortcut
-                        "--linux-package-name", "pacman",
-                        "--linux-app-category", "Game"
+                        "--linux-package-name", "pacman", "--linux-app-category", "Game"
                     )
                 )
             }
@@ -151,8 +150,7 @@ jlink {
                     listOf(
                         "--win-shortcut",          // Create desktop shortcut
                         "--win-menu",              // Create Start Menu entry
-                        "--win-menu-group", "Pacman",
-                        "--win-dir-chooser"        // Allow directory choice during installation
+                        "--win-menu-group", "Pacman", "--win-dir-chooser"        // Allow directory choice during installation
                     )
                 )
             }
@@ -162,8 +160,7 @@ jlink {
                 installerOptions.addAll(
                     listOf(
                         "--mac-package-identifier", "com.dawciobiel.pacman",  // Bundle ID
-                        "--mac-package-name", "Pacman",
-                        "--mac-app-category", "public.app-category.games"
+                        "--mac-package-name", "Pacman", "--mac-app-category", "public.app-category.games"
                     )
                 )
             }
@@ -173,14 +170,10 @@ jlink {
     }
 }
 
-
-
 // Run configuration
 tasks.named<JavaExec>("run") {
     jvmArgs = listOf(
         "--module-path", classpath.asPath,
         "--add-modules", "javafx.controls,javafx.fxml,javafx.media,javafx.web,javafx.swing",
-        "-Djdk.gtk.version=3",
-        "-Dprism.allowhidpi=false"  // It can help with GDK warnings
     )
 }

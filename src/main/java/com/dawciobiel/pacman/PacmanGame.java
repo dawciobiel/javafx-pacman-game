@@ -42,8 +42,24 @@ enum GhostMode {
 public class PacmanGame extends Application {
 
 
+    private long lastUpdate = 0;
+    /* Time in ms
+            Calculation
+            1 sec = 1000000000 nanoseconds
+            90 FPS = 1 000 000 000 ÷ 90 = 11_111_111 nanoseconds
+            60 FPS = 1 000 000 000 / 60 = 16_666_666,6667
+
+        Best choice is usually 60FPS
+            30 FPS: 33_333_333 (33.33ms)
+            60 FPS: 16_666_667 (16.67ms)
+            90 FPS: 11_111_111 (11.11ms)
+            120 FPS: 8_333_333 (8.33ms)
+            144 FPS: 6_944_444 (6.94ms)
+     */
+    private static final long UPDATE_INTERVAL = 16_666_667;
+    static final double MOVEMENT_SPEED = 0.2;
+
     static final int TILE_SIZE = 50;
-    static final double MOVEMENT_SPEED = 0.1;
     // OPTYMALIZACJA: Re-używalne obiekty
     static final Random SHARED_RANDOM = new Random();
     private static final int BOARD_WIDTH = 1200;
@@ -62,12 +78,10 @@ public class PacmanGame extends Application {
     private static final int POWER_PELLET_DURATION = 10000; // 10 sekund w milisekundach
     private static final int GHOST_POINTS = 200; // Punkty za zjedzenie ducha
     // OPTYMALIZACJA: Object pooling dla kierunków
-    private static final Direction[] DIRECTION_VALUES = Direction.values();
     private static final int[][] MAZE_DIRECTIONS = {{0, -2}, {0, 2}, {-2, 0}, {2, 0}};
     // OPTYMALIZACJA: Bufory do wielokrotnego użytku
     private final List<int[]> stackBuffer = new ArrayList<>(100);
     private final List<int[]> neighborsBuffer = new ArrayList<>(4);
-    private final List<Direction> validDirectionsBuffer = new ArrayList<>(4);
     private SoundManager soundManager;
     private Canvas canvas;
     private GraphicsContext gc;
@@ -83,7 +97,7 @@ public class PacmanGame extends Application {
     private boolean gameWon = false;
     private long powerPelletStartTime = 0;
     private boolean isPowerPelletActive = false;
-    private int ghostMultiplier = 1; // Mnożnik punktów za duchy
+    private int ghostMultiplier = 2; // Mnożnik punktów za duchy
 
     public static void main(final String[] args) {
         launch(args);
@@ -392,9 +406,13 @@ public class PacmanGame extends Application {
     private void startGameLoop() {
         gameLoop = new AnimationTimer() {
             @Override
-            public void handle(final long now) {
-                update(now);
-                render();
+            public void handle(long now) {
+                if (now - lastUpdate >= UPDATE_INTERVAL) { // Reduction FPS
+                    update(now);
+                    render();
+                    lastUpdate = now;
+//                    System.out.println("[debug] FPS: " + now);
+                }
             }
         };
         gameLoop.start();
@@ -420,20 +438,26 @@ public class PacmanGame extends Application {
             ghost.update(walls, pacman.getTileX(), pacman.getTileY(), isPowerPelletActive, pacman.getDirection());
         }
 
-        // OPTYMALIZACJA: Sprawdź kolizje z jedzeniem tylko, gdy Pacman jest w centrum
+        // As an optimization, check the collisions with food only when Pacman is in the center of the field
+        checkCollisionWithFood(currentTime);
+
+        // Check collisions with ghosts
+        if (checkCollisionsWithGhosts()) return;
+
+        // Check winning conditions
+        checkWinningConditions();
+    }
+
+    private void checkCollisionWithFood(long currentTime) {
         if (pacman.isAtTileCenter()) {
-            // Sprawdź kolizje ze zwykłym jedzeniem
+            // Check collisions with food
             Iterator<Food> foodIterator = foods.iterator();
             while (foodIterator.hasNext()) {
                 Food food = foodIterator.next();
-                if (food.x() == pacman.getTileX() && food.y() == pacman.getTileY()) {
-                    score += 10;
-                    foodIterator.remove();
-                    soundManager.playSound("chomp"); // DODANE
-                }
+                eatFood(food, foodIterator);
             }
 
-            // Sprawdź kolizje z power pellets
+            // Check collisions with power pellets
             Iterator<PowerPellet> powerPelletIterator = powerPellets.iterator();
             while (powerPelletIterator.hasNext()) {
                 PowerPellet powerPellet = powerPelletIterator.next();
@@ -448,14 +472,27 @@ public class PacmanGame extends Application {
                     ghostMultiplier = 1;
 
                     // Zmień tryb duchów na frightened
-                    for (Ghost ghost : ghosts) {
-                        ghost.setMode(GhostMode.FRIGHTENED);
-                    }
+                    changeGhostsMode(GhostMode.FRIGHTENED);
                 }
             }
         }
+    }
 
-        // Sprawdź kolizje z duchami
+    private void changeGhostsMode(GhostMode ghostMode) {
+        for (Ghost ghost : ghosts) {
+            ghost.setMode(ghostMode);
+        }
+    }
+
+    private void eatFood(Food food, Iterator<Food> foodIterator) {
+        if (food.x() == pacman.getTileX() && food.y() == pacman.getTileY()) {
+            score += 10;
+            foodIterator.remove();
+            soundManager.playSound("chomp");
+        }
+    }
+
+    private boolean checkCollisionsWithGhosts() {
         Iterator<Ghost> ghostIterator = ghosts.iterator();
         while (ghostIterator.hasNext()) {
             Ghost ghost = ghostIterator.next();
@@ -465,80 +502,88 @@ public class PacmanGame extends Application {
 
             if (distanceSquared < (TILE_SIZE * 0.8) * (TILE_SIZE * 0.8)) {
                 if (isPowerPelletActive && ghost.getMode() == GhostMode.FRIGHTENED) {
-                    // Zjadanie ducha
-                    score += GHOST_POINTS * ghostMultiplier;
-                    ghostMultiplier *= 2; // Podwajaj punkty za kolejne duchy
-                    soundManager.playSound("ghost_eaten");
-
-                    ghost.setModeDead();
-                } else if (ghost.getMode() != GhostMode.DEAD) { // DODANE: Nie zabijaj jeśli duch jest martwy
-                    // Pacman zostaje zjedzony
-                    lives--;
-                    soundManager.playSound("death");
+                    eatGhost(ghost);
+                } else if (ghost.getMode() != GhostMode.DEAD) { // Nie zabijaj, jeśli duch jest martwy
+                    executePacmanIsDead();
                     if (lives <= 0) {
-                        gameOver = true;
-                        soundManager.playSound("game_over");
-                        gameLoop.stop();
-                        return;
+                        executePacmanIsDeadAndNoMoreLives(gameOver, "game_over");
+                        return true;
                     } else {
                         // Restart pozycji
-                        pacman.reset(1, 1);
-                        isPowerPelletActive = false;
-                        ghostMultiplier = 1;
+                        resetPacmanPosition();
 
-                        // Przywróć normalny tryb duchów
-                        for (Ghost g : ghosts) {
-                            g.setMode(GhostMode.SCATTER);
-                        }
+                        // Przywróć atakujący tryb duchów
+                        changeGhostsMode(GhostMode.SCATTER);
                     }
                 }
             }
         }
+        return false;
+    }
 
-        // Sprawdź warunek wygranej
+    /**
+     * Pacman zjada ducha
+     *
+     * @param ghost
+     */
+    private void eatGhost(Ghost ghost) {
+        score += GHOST_POINTS * ghostMultiplier;
+        ghostMultiplier *= 2;
+        soundManager.playSound("ghost_eaten");
+        ghost.setModeDead();
+    }
+
+    private void resetPacmanPosition() {
+        pacman.reset(1, 1);
+        isPowerPelletActive = false;
+        ghostMultiplier = 1;
+    }
+
+    private void executePacmanIsDeadAndNoMoreLives(boolean gameOver, String game_over) {
+        this.gameOver = true;
+        soundManager.playSound(game_over);
+        gameLoop.stop();
+    }
+
+    private void executePacmanIsDead() {
+        lives--;
+        soundManager.playSound("death");
+    }
+
+    private void checkWinningConditions() {
         if (foods.isEmpty() && powerPellets.isEmpty()) {
-            gameWon = true;
-            soundManager.playSound("level_complete");
-            gameLoop.stop();
+            executePacmanIsDeadAndNoMoreLives(gameWon, "level_complete");
         }
     }
 
     private void render() {
-        // Wyczyść ekran
-        gc.setFill(Color.BLACK);
-        gc.fillRect(0, 0, BOARD_WIDTH, BOARD_HEIGHT);
-
-        // Narysuj ściany
-        gc.setFill(Color.BLUE);
-        for (int x = 0; x < BOARD_COLS; x++) {
-            for (int y = 0; y < BOARD_ROWS; y++) {
-                if (walls[x][y]) {
-                    gc.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-                }
-            }
-        }
-
-        // Narysuj jedzenie
-        gc.setFill(Color.YELLOW);
-        for (Food food : foods) {
-            double foodX = food.x() * TILE_SIZE + TILE_SIZE * 0.25;
-            double foodY = food.y() * TILE_SIZE + TILE_SIZE * 0.25;
-            double foodSize = TILE_SIZE * 0.3;
-            gc.fillOval(foodX, foodY, foodSize, foodSize);
-        }
-
-        // Narysuj power pellets
-        gc.setFill(Color.TOMATO);
-        for (PowerPellet powerPellet : powerPellets) {
-            double pelletX = powerPellet.x() * TILE_SIZE + TILE_SIZE * 0.15;
-            double pelletY = powerPellet.y() * TILE_SIZE + TILE_SIZE * 0.15;
-            double pelletSize = TILE_SIZE * 0.7;
-            gc.fillOval(pelletX, pelletY, pelletSize, pelletSize);
-        }
-
+        clearMap();
+        drawWalls();
+        drawFoods();
+        drawPowerPellets();
         pacman.draw(gc);
+        drawGhosts();
+        drawHUD();
 
-        // Narysuj duchy
+        if (isPowerPelletActive) {
+            gc.fillText("POWER MODE!", 620, 25);
+        }
+
+        if (gameOver) {
+            drawEndScreen(gc, "GAME OVER!", Color.RED, GAME_OVER_FONT);
+        } else if (gameWon) {
+            drawEndScreen(gc, "You won!", Color.YELLOW, GAME_OVER_FONT);
+        }
+    }
+
+    private void drawHUD() {
+        gc.setFill(Color.WHITE);
+        gc.setFont(UI_FONT);
+        gc.fillText("Score: " + score, 100, 25);
+        gc.fillText("Lives: " + lives, 350, 25);
+    }
+
+    private void drawGhosts() {
         for (Ghost ghost : ghosts) {
             Color ghostColor;
             if (ghost.getMode() == GhostMode.FRIGHTENED) {
@@ -566,22 +611,45 @@ public class PacmanGame extends Application {
             //todo Martwe duchy (zjedzony) nie są rysowane w kolorze szarym
 
         }
+    }
 
-        // UI
-        gc.setFill(Color.WHITE);
-        gc.setFont(UI_FONT);
-        gc.fillText("Score: " + score, 100, 25);
-        gc.fillText("Lives: " + lives, 350, 25);
-
-        if (isPowerPelletActive) {
-            gc.fillText("POWER MODE!", 620, 25);
+    private void drawPowerPellets() {
+        gc.setFill(Color.TOMATO);
+        for (PowerPellet powerPellet : powerPellets) {
+            double pelletX = powerPellet.x() * TILE_SIZE + TILE_SIZE * 0.15;
+            double pelletY = powerPellet.y() * TILE_SIZE + TILE_SIZE * 0.15;
+            double pelletSize = TILE_SIZE * 0.7;
+            gc.fillOval(pelletX, pelletY, pelletSize, pelletSize);
         }
+    }
 
-        if (gameOver) {
-            drawEndScreen(gc, "GAME OVER!", Color.RED, GAME_OVER_FONT);
-        } else if (gameWon) {
-            drawEndScreen(gc, "You won!", Color.YELLOW, GAME_OVER_FONT);
+    private void drawFoods() {
+        gc.setFill(Color.YELLOW);
+        for (Food food : foods) {
+            double foodX = food.x() * TILE_SIZE + TILE_SIZE * 0.25;
+            double foodY = food.y() * TILE_SIZE + TILE_SIZE * 0.25;
+            double foodSize = TILE_SIZE * 0.3;
+            gc.fillOval(foodX, foodY, foodSize, foodSize);
         }
+    }
+
+    private void drawWalls() {
+        gc.setFill(Color.BLUE);
+        for (int x = 0; x < BOARD_COLS; x++) {
+            for (int y = 0; y < BOARD_ROWS; y++) {
+                if (walls[x][y]) {
+                    double drawX = x * (double) TILE_SIZE;
+                    double drawY = y * (double) TILE_SIZE;
+
+                    gc.fillRect(drawX, drawY, TILE_SIZE, TILE_SIZE);
+                }
+            }
+        }
+    }
+
+    private void clearMap() {
+        gc.setFill(Color.BLACK);
+        gc.fillRect(0, 0, BOARD_WIDTH, BOARD_HEIGHT);
     }
 
     private void drawEndScreen(GraphicsContext gc, String mainText, Color fillColor, Font mainFont) {
@@ -618,8 +686,6 @@ public class PacmanGame extends Application {
 
 class Player {
     private static final double ANIMATION_SPEED = 0.15;
-    private final int startX;
-    private final int startY;
     private double x;
     private double y;
     private int tileX;
@@ -631,8 +697,6 @@ class Player {
     private double animationTime = 0.0;
 
     public Player(int startX, int startY) {
-        this.startX = startX;
-        this.startY = startY;
         this.tileX = startX;
         this.tileY = startY;
         this.x = startX * PacmanGame.TILE_SIZE + PacmanGame.TILE_SIZE * 0.5;
@@ -785,15 +849,12 @@ class Player {
 
 class Ghost {
 
-
     private static final int SCATTER_DURATION = 420; // 7 sekund * 60 FPS
     private static final int CHASE_DURATION = 1200;  // 20 sekund * 60 FPS
     private static final int HOME_X = BOARD_COLS / 2;
     private static final int HOME_Y = BOARD_ROWS / 2;
     private final Color originalColor;
     private final List<Direction> validDirections = new ArrayList<>(4);
-    private final int startX;
-    private final int startY;
     private final int scatterTargetX;
     private final int scatterTargetY;
     private final int ghostIndex; // 0-3 dla różnych strategii
@@ -809,8 +870,6 @@ class Ghost {
 
 
     public Ghost(int startX, int startY, Color color) {
-        this.startX = startX;
-        this.startY = startY;
         this.tileX = startX;
         this.tileY = startY;
         this.x = startX * PacmanGame.TILE_SIZE + PacmanGame.TILE_SIZE * 0.5;
@@ -829,7 +888,7 @@ class Ghost {
 
     }
 
-    // Metoda do zarządzania stanami (dodaj do klasy Ghost)
+    // Metoda do zarządzania stanami
     private void updateMode() {
         if (mode == GhostMode.FRIGHTENED || mode == GhostMode.DEAD) {
             return; // Nie zmieniaj automatycznie w tych trybach
@@ -846,7 +905,7 @@ class Ghost {
         }
     }
 
-    // Metoda do wybierania celu (dodaj do klasy Ghost)
+    // Metoda do wybierania celu
     private int[] getTarget(int pacmanX, int pacmanY, Direction pacmanDirection) {
         switch (mode) {
             case SCATTER:
@@ -866,7 +925,7 @@ class Ghost {
         }
     }
 
-    // Metoda do strategii ścigania (dodaj do klasy Ghost)
+    // Metoda do strategii ścigania
     private int[] getChaseTarget(int pacmanX, int pacmanY, Direction pacmanDirection) {
         switch (ghostIndex) {
             case 0: // Czerwony (Blinky) - bezpośrednio do Pacmana
@@ -923,7 +982,7 @@ class Ghost {
         }
     }
 
-    // Metoda do ruchu w kierunku celu (dodaj do klasy Ghost)
+    // Metoda do ruchu w kierunku celu
     private Direction getBestDirectionToTarget(int[] target, boolean[][] walls) {
         if (target == null) return null;
 
@@ -951,7 +1010,7 @@ class Ghost {
         return bestDirection;
     }
 
-    // Metoda pomocnicza dla kierunków przeciwnych (dodaj do klasy Ghost)
+    // Metoda pomocnicza dla kierunków przeciwnych
     private Direction getOppositeDirection(Direction dir) {
         switch (dir) {
             case UP:
@@ -980,12 +1039,11 @@ class Ghost {
     }
 
     public void update(boolean[][] walls, int pacmanX, int pacmanY, boolean isPowerPelletActive, Direction pacmanDirection) {
-        // Aktualizuj tryb tylko jeśli nie jest frightened
         if (mode != GhostMode.FRIGHTENED) {
             updateMode();
         }
 
-        // Sprawdź, czy duch w trybie DEAD dotarł do domu
+        // Sprawdź, czy duch w trybie DEAD dotarł do "domu"
         if (mode == GhostMode.DEAD) {
             if (Math.abs(tileX - HOME_X) <= 1 && Math.abs(tileY - HOME_Y) <= 1) {
                 mode = GhostMode.SCATTER;
@@ -1020,36 +1078,60 @@ class Ghost {
 
     private void chooseDirection(boolean[][] walls, int pacmanX, int pacmanY, Direction pacmanDirection) {
         validDirections.clear();
-        for (Direction dir : Direction.values()) {
-            if (canMove(dir, walls)) {
-                validDirections.add(dir);
-            }
-        }
+        chooseAllValidDirections(walls);
 
         if (!validDirections.isEmpty()) {
             if (mode == GhostMode.FRIGHTENED) {
-                // W trybie frightened, unikaj Pacmana (istniejący kod)
-                Direction bestDirection = getBestDirection(pacmanX, pacmanY);
-                if (bestDirection != null) {
-                    direction = bestDirection;
-                } else {
-                    direction = validDirections.get(PacmanGame.SHARED_RANDOM.nextInt(validDirections.size()));
-                }
+                chooseDirectionInFrightenedMode(pacmanX, pacmanY);
             } else {
-                // NOWE: Scatter, Chase, Dead modes
-                int[] target = getTarget(pacmanX, pacmanY, pacmanDirection);
-                Direction bestDirection = getBestDirectionToTarget(target, walls);
+                chooseDirectionInScatterChaseDeadModes(walls, pacmanX, pacmanY, pacmanDirection);
+            }
+        }
+    }
 
-                if (bestDirection != null && validDirections.contains(bestDirection)) {
-                    direction = bestDirection;
-                } else {
-                    // Fallback — kontynuuj obecny kierunek lub wybierz losowy
-                    if (PacmanGame.SHARED_RANDOM.nextInt(10) < 7 && validDirections.contains(direction)) {
-                        // Kontynuuj obecny kierunek
-                    } else {
-                        direction = validDirections.get(PacmanGame.SHARED_RANDOM.nextInt(validDirections.size()));
-                    }
-                }
+    /**
+     * Wybierz kierunek ruchu dla trybów [ Scatter, Chase, Dead modes ]
+     *
+     * @param walls
+     * @param pacmanX
+     * @param pacmanY
+     * @param pacmanDirection
+     */
+    private void chooseDirectionInScatterChaseDeadModes(boolean[][] walls, int pacmanX, int pacmanY, Direction pacmanDirection) {
+        int[] target = getTarget(pacmanX, pacmanY, pacmanDirection);
+        Direction bestDirection = getBestDirectionToTarget(target, walls);
+
+        if (bestDirection != null && validDirections.contains(bestDirection)) {
+            direction = bestDirection;
+        } else {
+            // Fallback — kontynuuj obecny kierunek lub wybierz losowy
+            if (PacmanGame.SHARED_RANDOM.nextInt(10) < 7 && validDirections.contains(direction)) {
+                // Kontynuuj obecny kierunek
+            } else {
+                direction = validDirections.get(PacmanGame.SHARED_RANDOM.nextInt(validDirections.size()));
+            }
+        }
+    }
+
+    /**
+     * Unikaj Pacmana
+     *
+     * @param pacmanX
+     * @param pacmanY
+     */
+    private void chooseDirectionInFrightenedMode(int pacmanX, int pacmanY) {
+        Direction bestDirection = getBestDirection(pacmanX, pacmanY);
+        if (bestDirection != null) {
+            direction = bestDirection;
+        } else {
+            direction = validDirections.get(PacmanGame.SHARED_RANDOM.nextInt(validDirections.size()));
+        }
+    }
+
+    private void chooseAllValidDirections(boolean[][] walls) {
+        for (Direction direct : Direction.values()) {
+            if (canMove(direct, walls)) {
+                validDirections.add(direct);
             }
         }
     }
