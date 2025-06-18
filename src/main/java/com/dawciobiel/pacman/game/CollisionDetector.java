@@ -17,9 +17,7 @@ public class CollisionDetector {
 
 
     public static boolean checkCollisionsWithGhosts(GameEngine gameEngine, Player pacman, List<Ghost> ghosts) {
-        Iterator<Ghost> ghostIterator = ghosts.iterator();
-        while (ghostIterator.hasNext()) {
-            Ghost ghost = ghostIterator.next();
+        for (Ghost ghost : ghosts) {
             double distanceSquared = calculateDistanceSquared(pacman, ghost);
             if (CollisionDetector.checkCollisionWithOneGhost(gameEngine, distanceSquared, ghost)) {
 
@@ -37,8 +35,10 @@ public class CollisionDetector {
             } else if (ghost.getMode() != GhostMode.DEAD) { // Nie zabijaj, jeśli duch jest martwy
                 gameEngine.executePacmanIsDead();
                 if (GameState.lives <= 0) {
-                    boolean shouldContinueTheGame = GameState.gameOver;
+                    GameState.gameOver = true;
+                    boolean shouldContinueTheGame = false;
                     gameEngine.executePacmanIsDeadAndNoMoreLives(shouldContinueTheGame, "game_over");
+
                     return true;
                 } else {
                     // Restart pozycji

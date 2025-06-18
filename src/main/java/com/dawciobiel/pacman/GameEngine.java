@@ -7,9 +7,9 @@ import com.dawciobiel.pacman.entities.Player;
 import com.dawciobiel.pacman.entities.PowerPellet;
 import com.dawciobiel.pacman.game.CollisionDetector;
 import com.dawciobiel.pacman.game.GameState;
+import com.dawciobiel.pacman.input.InputHandler;
 import com.dawciobiel.pacman.level.MazeGenerator;
 import com.dawciobiel.pacman.sound.SoundManager;
-import com.dawciobiel.pacman.utils.Direction;
 import com.dawciobiel.pacman.utils.GameConstants;
 import com.dawciobiel.pacman.utils.GhostMode;
 import com.dawciobiel.pacman.utils.Point;
@@ -18,7 +18,6 @@ import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.input.KeyCode;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.ArcType;
@@ -30,7 +29,6 @@ import java.util.Iterator;
 import java.util.List;
 
 import static com.dawciobiel.pacman.game.GameState.addScore;
-import static com.dawciobiel.pacman.game.GameState.gameOver;
 import static com.dawciobiel.pacman.game.GameState.lives;
 import static com.dawciobiel.pacman.game.GameState.score;
 import static com.dawciobiel.pacman.utils.GameConstants.BOARD_HEIGHT;
@@ -57,7 +55,7 @@ public class GameEngine extends Application {
     private static AnimationTimer gameLoop;
     private static long lastUpdate = 0;
     private static boolean[][] walls;
-    private static boolean gameWon = false;
+
     private GraphicsContext gc;
 
     public static void main(final String[] args) {
@@ -310,7 +308,8 @@ public class GameEngine extends Application {
         root.setCenter(canvas);
 
         Scene scene = new Scene(root, BOARD_WIDTH, BOARD_HEIGHT);
-        scene.setOnKeyPressed(e -> handleKeyPress(e.getCode()));
+        scene.setOnKeyPressed(e -> InputHandler.handleKeyPress(e.getCode(), pacman::queueDirection, this::restartGame, soundManager));
+
 
         primaryStage.setTitle("Pacman Game - by dawciobiel");
         primaryStage.setScene(scene);
@@ -324,35 +323,9 @@ public class GameEngine extends Application {
         startGameLoop();
     }
 
-    private void handleKeyPress(final KeyCode keyCode) {
-        if (gameOver || gameWon) {
-            if (keyCode == KeyCode.R) {
-                restartGame();
-            }
-            return;
-        }
-
-        if (keyCode == KeyCode.M) {
-            soundManager.setSoundEnabled(!soundManager.isSoundEnabled());
-            return;
-        }
-
-        Direction newDirection = switch (keyCode) {
-            case UP, W -> Direction.UP;
-            case DOWN, S -> Direction.DOWN;
-            case LEFT, A -> Direction.LEFT;
-            case RIGHT, D -> Direction.RIGHT;
-            default -> null;
-        };
-
-        if (newDirection != null) {
-            pacman.queueDirection(newDirection);
-        }
-    }
-
     private void restartGame() {
-        gameOver = false;
-        gameWon = false;
+        GameState.gameOver = false;
+        GameState.gameWon = false;
         initializeGame();
         if (gameLoop != null) {
             gameLoop.stop();
@@ -379,7 +352,7 @@ public class GameEngine extends Application {
     }
 
     private void update(final long currentTime) {
-        if (gameOver || gameWon) return;
+        if (GameState.gameOver || GameState.gameWon) return;
 
         // Sprawdź, czy power pellet wygasł
         if (isPowerPelletActive && currentTime - powerPelletStartTime > POWER_PELLET_DURATION * 1_000_000L) {
@@ -430,13 +403,10 @@ public class GameEngine extends Application {
         ghostMultiplier = 1;
     }
 
-    //todo Metoda ma argument `shouldContinueTheGame` który może być wykorzystany wewnątrz do ew. wstrzymania `gameLoop`.
-    // A jeżeli gracz ukończył całą plansze - wtedy niech gameLoop nie jest zatrzymywany.
-    // To rozwiązanie może i zadziała, o ile inne metody (wyświetlanie powiadomień o ukończeniu mapy) nie wstrzymują dodatkowo `gameOver` itp. pól.
     public void executePacmanIsDeadAndNoMoreLives(boolean shouldContinueTheGame, String soundForEndOfTheGameType) {
-        GameState.gameOver = !shouldContinueTheGame;
+        GameState.gameWon = shouldContinueTheGame; // If level complete
         soundManager.playSound(soundForEndOfTheGameType);
-        if (shouldContinueTheGame) {
+        if (GameState.gameOver) {
             gameLoop.stop();
         }
     }
@@ -448,7 +418,7 @@ public class GameEngine extends Application {
 
     private void checkWinningConditions() {
         if (foods.isEmpty() && powerPellets.isEmpty()) {
-            executePacmanIsDeadAndNoMoreLives(gameWon, "level_complete");
+            executePacmanIsDeadAndNoMoreLives(true, "level_complete");
         }
     }
 
@@ -465,9 +435,9 @@ public class GameEngine extends Application {
             gc.fillText("POWER MODE!", 620, 25);
         }
 
-        if (gameOver) {
+        if (GameState.gameOver) {
             drawEndScreen(gc, "GAME OVER!", Color.RED, GAME_OVER_FONT);
-        } else if (gameWon) {
+        } else if (GameState.gameWon) {
             drawEndScreen(gc, "You won!", Color.YELLOW, GAME_OVER_FONT);
         }
     }
