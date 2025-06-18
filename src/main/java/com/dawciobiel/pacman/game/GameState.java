@@ -47,7 +47,7 @@ public class GameState {
         score = GameConstants.INITIAL_SCORE;
         lives = GameConstants.INITIAL_LIVES;
         gameOver = false;
-        this.gameWon = false;
+        gameWon = false;
         this.isPowerPelletActive = false;
         this.powerPelletStartTime = 0;
         this.ghostMultiplier = GameConstants.INITIAL_GHOST_MULTIPLIER;
@@ -62,6 +62,7 @@ public class GameState {
         int points = GameConstants.GHOST_POINTS * ghostMultiplier;
         addScore(points);
         ghostMultiplier *= GameConstants.GHOST_MULTIPLIER_INCREMENT;
+
         return points;
     }
 
@@ -104,7 +105,7 @@ public class GameState {
      * Kończy grę jako wygraną.
      */
     public void winGame() {
-        this.gameWon = true;
+        gameWon = true;
     }
 
     /**
@@ -150,7 +151,7 @@ public class GameState {
         this.gameWon = gameWon;
     }
 
-    // === SETTERY (głównie do testów) ===
+    // === SETTER (głównie do testów) ===
 
     public boolean isPowerPelletActive() {
         return isPowerPelletActive;

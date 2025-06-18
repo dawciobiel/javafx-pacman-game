@@ -17,9 +17,7 @@ public class CollisionDetector {
 
 
     public static boolean checkCollisionsWithGhosts(GameEngine gameEngine, Player pacman, List<Ghost> ghosts) {
-        Iterator<Ghost> ghostIterator = ghosts.iterator();
-        while (ghostIterator.hasNext()) {
-            Ghost ghost = ghostIterator.next();
+        for (Ghost ghost : ghosts) {
             double distanceSquared = calculateDistanceSquared(pacman, ghost);
             if (CollisionDetector.checkCollisionWithOneGhost(gameEngine, distanceSquared, ghost)) {
 
