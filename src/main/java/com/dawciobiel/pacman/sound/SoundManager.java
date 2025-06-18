@@ -1,4 +1,4 @@
-package com.dawciobiel.pacman;
+package com.dawciobiel.pacman.sound;
 
 import javafx.scene.media.Media;
 import javafx.scene.media.MediaPlayer;
