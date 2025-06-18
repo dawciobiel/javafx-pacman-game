@@ -1,7 +1,16 @@
 package com.dawciobiel.pacman;
 
 
+import com.dawciobiel.pacman.entities.Food;
+import com.dawciobiel.pacman.entities.Ghost;
+import com.dawciobiel.pacman.entities.Player;
+import com.dawciobiel.pacman.entities.PowerPellet;
+import com.dawciobiel.pacman.game.CollisionDetector;
+import com.dawciobiel.pacman.game.GameState;
 import com.dawciobiel.pacman.sound.SoundManager;
+import com.dawciobiel.pacman.utils.Direction;
+import com.dawciobiel.pacman.utils.GameConstants;
+import com.dawciobiel.pacman.utils.GhostMode;
 import javafx.animation.AnimationTimer;
 import javafx.application.Application;
 import javafx.scene.Scene;
@@ -17,76 +26,43 @@ import javafx.stage.Stage;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Random;
 
-import com.dawciobiel.pacman.utils.Direction;
-import com.dawciobiel.pacman.utils.GhostMode;
-import com.dawciobiel.pacman.entities.Food;
-import com.dawciobiel.pacman.entities.Player;
-import com.dawciobiel.pacman.entities.Ghost;
-import com.dawciobiel.pacman.entities.PowerPellet;
-import com.dawciobiel.pacman.game.CollisionDetector;
+import static com.dawciobiel.pacman.game.GameState.addScore;
+import static com.dawciobiel.pacman.game.GameState.gameOver;
+import static com.dawciobiel.pacman.game.GameState.lives;
+import static com.dawciobiel.pacman.game.GameState.score;
+import static com.dawciobiel.pacman.utils.GameConstants.BOARD_COLS;
+import static com.dawciobiel.pacman.utils.GameConstants.BOARD_HEIGHT;
+import static com.dawciobiel.pacman.utils.GameConstants.BOARD_ROWS;
+import static com.dawciobiel.pacman.utils.GameConstants.BOARD_WIDTH;
+import static com.dawciobiel.pacman.utils.GameConstants.GAME_OVER_FONT;
+import static com.dawciobiel.pacman.utils.GameConstants.GHOST_POINTS;
+import static com.dawciobiel.pacman.utils.GameConstants.MAZE_DIRECTIONS;
+import static com.dawciobiel.pacman.utils.GameConstants.POWER_PELLET_DURATION;
+import static com.dawciobiel.pacman.utils.GameConstants.SHARED_RANDOM;
+import static com.dawciobiel.pacman.utils.GameConstants.TILE_SIZE;
+import static com.dawciobiel.pacman.utils.GameConstants.UI_FONT;
+import static com.dawciobiel.pacman.utils.GameConstants.UPDATE_INTERVAL;
 
 
-public class PacmanGame extends Application {
+public class GameEngine extends Application {
 
-
-    private long lastUpdate = 0;
-    /* Time in ms
-            Calculation
-            1 sec = 1000000000 nanoseconds
-            90 FPS = 1 000 000 000 ÷ 90 = 11_111_111 nanoseconds
-            60 FPS = 1 000 000 000 / 60 = 16_666_666,6667
-
-        Best choice is usually 60FPS
-            30 FPS: 33_333_333 (33.33ms)
-            60 FPS: 16_666_667 (16.67ms)
-            90 FPS: 11_111_111 (11.11ms)
-            120 FPS: 8_333_333 (8.33ms)
-            144 FPS: 6_944_444 (6.94ms)
-     */
-    private static final long UPDATE_INTERVAL = 16_666_667;
-    public static final double MOVEMENT_SPEED = 0.2;
-
-    public static final int TILE_SIZE = 50;
-    // OPTYMALIZACJA: Re-używalne obiekty
-    public static final Random SHARED_RANDOM = new Random();
-    private static final int BOARD_WIDTH = 1200;
-    public static final int BOARD_COLS = BOARD_WIDTH / TILE_SIZE;
-    private static final int BOARD_HEIGHT = 800;
-    public static final int BOARD_ROWS = BOARD_HEIGHT / TILE_SIZE;
-    // Pozycje rogów dla scatter mode
-    public static final int[][] SCATTER_TARGETS = {{BOARD_COLS - 1, 0},        // czerwony — prawy górny
-            {0, 0},                     // różowy — lewy górny
-            {BOARD_COLS - 1, BOARD_ROWS - 1}, // cyan — prawy dolny
-            {0, BOARD_ROWS - 1}         // pomarańczowy — lewy dolny
-    };
-    private static final Font UI_FONT = new Font("Arial", 20);
-    private static final Font GAME_OVER_FONT = new Font("Arial", 40);
-    // Power pellet settings
-    private static final int POWER_PELLET_DURATION = 10000; // 10 sekund w milisekundach
-    private static final int GHOST_POINTS = 200; // Punkty za zjedzenie ducha
-    // OPTYMALIZACJA: Object pooling dla kierunków
-    private static final int[][] MAZE_DIRECTIONS = {{0, -2}, {0, 2}, {-2, 0}, {2, 0}};
-    // OPTYMALIZACJA: Bufory do wielokrotnego użytku
-    private final List<int[]> stackBuffer = new ArrayList<>(100);
-    private final List<int[]> neighborsBuffer = new ArrayList<>(4);
-    public SoundManager soundManager;
-    private Canvas canvas;
+    // Bufory do wielokrotnego użytku
+    private static final List<int[]> stackBuffer = new ArrayList<>(100);
+    private static final List<int[]> neighborsBuffer = new ArrayList<>(4);
+    public static SoundManager soundManager;
+    public static Player pacman;
+    public static List<Ghost> ghosts;
+    public static List<Food> foods;
+    public static List<PowerPellet> powerPellets;
+    public static long powerPelletStartTime = 0;
+    public static boolean isPowerPelletActive = false;
+    public static int ghostMultiplier = 1; // Mnożnik punktów za duchy. Zmienia po aktywacji power-up-ów
+    private static AnimationTimer gameLoop;
+    private static long lastUpdate = 0;
+    private static boolean[][] walls;
+    private static boolean gameWon = false;
     private GraphicsContext gc;
-    private AnimationTimer gameLoop;
-    public Player pacman;
-    public List<Ghost> ghosts;
-    public List<Food> foods;
-    public List<PowerPellet> powerPellets;
-    private boolean[][] walls;
-    public int score = 0;
-    public int lives = 3;
-    public boolean gameOver = false;
-    private boolean gameWon = false;
-    public long powerPelletStartTime = 0;
-    public boolean isPowerPelletActive = false;
-    public int ghostMultiplier = 2; // Mnożnik punktów za duchy
 
     public static void main(final String[] args) {
         launch(args);
@@ -144,31 +120,7 @@ public class PacmanGame extends Application {
         gc.fillOval(rightEyeX - pupilR, eyeY - pupilR + eyeR * 0.3, pupilR * 2, pupilR * 2);
     }
 
-    @Override
-    public void start(final Stage primaryStage) {
-        BorderPane root = new BorderPane();
-        canvas = new Canvas(BOARD_WIDTH, BOARD_HEIGHT);
-        gc = canvas.getGraphicsContext2D();
-
-        root.setCenter(canvas);
-
-        Scene scene = new Scene(root, BOARD_WIDTH, BOARD_HEIGHT);
-        scene.setOnKeyPressed(e -> handleKeyPress(e.getCode()));
-
-        primaryStage.setTitle("Pacman Game - by dawciobiel");
-        primaryStage.setScene(scene);
-        primaryStage.setResizable(false);
-        primaryStage.show();
-
-        canvas.requestFocus();
-
-        initializeGame();
-        soundManager = SoundManager.getInstance();
-        startGameLoop();
-    }
-
-    private void initializeGame() {
-        // OPTYMALIZACJA: Wyczyść istniejące listy, zamiast tworzyć nowe
+    private static void initializeGame() {
         if (ghosts != null) {
             ghosts.clear();
         } else {
@@ -187,15 +139,15 @@ public class PacmanGame extends Application {
             powerPellets = new ArrayList<>(4);
         }
 
-        // Inicjalizacja ścian — re-używanie tablicy, jeśli możliwe
         if (walls == null) {
             walls = new boolean[BOARD_COLS][BOARD_ROWS];
         }
         createMaze();
 
-        pacman = new Player(1, 1);
+        // Create Pacman
+        pacman = new Player(GameConstants.PLAYER_START_X, GameConstants.PLAYER_START_Y);
 
-        // Dodaj duchy z predefiniowanymi kolorami
+        // Create ghosts
         ghosts.add(new Ghost(BOARD_COLS - 2, 1, Color.RED));
         ghosts.add(new Ghost(BOARD_COLS - 2, BOARD_ROWS - 2, Color.PINK));
         ghosts.add(new Ghost(1, BOARD_ROWS - 2, Color.CYAN));
@@ -209,7 +161,7 @@ public class PacmanGame extends Application {
         ghostMultiplier = 1;
     }
 
-    private void createMaze() {
+    private static void createMaze() {
         // OPTYMALIZACJA: Zresetuj tablicę zamiast tworzyć nową
         for (int x = 0; x < BOARD_COLS; x++) {
             for (int y = 0; y < BOARD_ROWS; y++) {
@@ -233,12 +185,12 @@ public class PacmanGame extends Application {
         createOpenAreasAsCross();
     }
 
-    private void ensureTunnelAccess(final int tunnelRow) {
+    private static void ensureTunnelAccess(final int tunnelRow) {
         walls[1][tunnelRow] = false;
         walls[BOARD_COLS - 2][tunnelRow] = false;
     }
 
-    private void generateMaze(final int startX, final int startY) {
+    private static void generateMaze(final int startX, final int startY) {
         // OPTYMALIZACJA: Re-używanie buforów
         stackBuffer.clear();
         boolean[][] visited = new boolean[BOARD_COLS][BOARD_ROWS];
@@ -283,7 +235,7 @@ public class PacmanGame extends Application {
         }
     }
 
-    private void clearArea(final int centerX, final int centerY, final int radius) {
+    private static void clearArea(final int centerX, final int centerY, final int radius) {
         for (int x = centerX - radius; x <= centerX + radius; x++) {
             for (int y = centerY - radius; y <= centerY + radius; y++) {
                 if (x > 0 && x < BOARD_COLS - 1 && y > 0 && y < BOARD_ROWS - 1) {
@@ -293,7 +245,7 @@ public class PacmanGame extends Application {
         }
     }
 
-    private void createOpenAreasAsCross() {
+    private static void createOpenAreasAsCross() {
         int numAreas = 3 + SHARED_RANDOM.nextInt(3);
 
         for (int i = 0; i < numAreas; i++) {
@@ -308,7 +260,7 @@ public class PacmanGame extends Application {
         }
     }
 
-    private void createFood() {
+    private static void createFood() {
         for (int x = 1; x < BOARD_COLS - 1; x++) {
             for (int y = 1; y < BOARD_ROWS - 1; y++) {
                 if (!walls[x][y] && !(x == 1 && y == 1)) {
@@ -318,7 +270,7 @@ public class PacmanGame extends Application {
         }
     }
 
-    private void createPowerPellets() {
+    private static void createPowerPellets() {
         // Dodaj power pellets w rogach labiryntu
         List<int[]> corners = new ArrayList<>();
         corners.add(new int[]{3, 3});
@@ -354,6 +306,43 @@ public class PacmanGame extends Application {
         }
     }
 
+    /**
+     * Pacman eats the ghost.
+     *
+     * @param ghost The ghost that was eaten
+     */
+    public static void eatGhost(Ghost ghost) {
+        addScore(GHOST_POINTS * ghostMultiplier);
+
+        ghostMultiplier *= 2;
+        soundManager.playSound("ghost_eaten");
+        ghost.setModeDead();
+    }
+
+    @Override
+    public void start(final Stage primaryStage) {
+        Canvas canvas;
+        BorderPane root = new BorderPane();
+        canvas = new Canvas(BOARD_WIDTH, BOARD_HEIGHT);
+        gc = canvas.getGraphicsContext2D();
+
+        root.setCenter(canvas);
+
+        Scene scene = new Scene(root, BOARD_WIDTH, BOARD_HEIGHT);
+        scene.setOnKeyPressed(e -> handleKeyPress(e.getCode()));
+
+        primaryStage.setTitle("Pacman Game - by dawciobiel");
+        primaryStage.setScene(scene);
+        primaryStage.setResizable(false);
+        primaryStage.show();
+
+        canvas.requestFocus();
+
+        initializeGame();
+        soundManager = SoundManager.getInstance();
+        startGameLoop();
+    }
+
     private void handleKeyPress(final KeyCode keyCode) {
         if (gameOver || gameWon) {
             if (keyCode == KeyCode.R) {
@@ -381,8 +370,6 @@ public class PacmanGame extends Application {
     }
 
     private void restartGame() {
-        score = 0;
-        lives = 3;
         gameOver = false;
         gameWon = false;
         initializeGame();
@@ -393,6 +380,9 @@ public class PacmanGame extends Application {
     }
 
     private void startGameLoop() {
+        score = GameConstants.INITIAL_SCORE;
+        lives = GameConstants.INITIAL_LIVES;
+
         gameLoop = new AnimationTimer() {
             @Override
             public void handle(long now) {
@@ -400,7 +390,7 @@ public class PacmanGame extends Application {
                     update(now);
                     render();
                     lastUpdate = now;
-//                    System.out.println("[debug] FPS: " + now);
+                    // System.out.println("[debug] FPS: " + now); // todo Remove it
                 }
             }
         };
@@ -431,15 +421,13 @@ public class PacmanGame extends Application {
         CollisionDetector.checkCollisionWithFood(this, currentTime);
 
         // Check collisions with ghosts
-        if (CollisionDetector.checkCollisionsWithGhosts(this)) {
+        if (CollisionDetector.checkCollisionsWithGhosts(this, pacman, ghosts)) {
             return;
         }
 
         // Check winning conditions
         checkWinningConditions();
     }
-
-
 
     public void changeGhostsMode(GhostMode ghostMode) {
         for (Ghost ghost : ghosts) {
@@ -449,22 +437,10 @@ public class PacmanGame extends Application {
 
     public void eatFood(Food food, Iterator<Food> foodIterator) {
         if (food.x() == pacman.getTileX() && food.y() == pacman.getTileY()) {
-            score += 10;
+            addScore(GameConstants.FOOD_POINTS);
             foodIterator.remove();
             soundManager.playSound("chomp");
         }
-    }
-
-    /**
-     * Pacman zjada ducha
-     *
-     * @param ghost
-     */
-    public void eatGhost(Ghost ghost) {
-        score += GHOST_POINTS * ghostMultiplier;
-        ghostMultiplier *= 2;
-        soundManager.playSound("ghost_eaten");
-        ghost.setModeDead();
     }
 
     public void resetPacmanPosition() {
@@ -473,14 +449,14 @@ public class PacmanGame extends Application {
         ghostMultiplier = 1;
     }
 
-    public void executePacmanIsDeadAndNoMoreLives(boolean gameOver, String game_over) {
-        this.gameOver = true;
-        soundManager.playSound(game_over);
+    public void executePacmanIsDeadAndNoMoreLives(boolean shouldContinueTheGame, String soundForEndOfTheGameType) {
+        GameState.gameOver = !shouldContinueTheGame;
+        soundManager.playSound(soundForEndOfTheGameType);
         gameLoop.stop();
     }
 
     public void executePacmanIsDead() {
-        lives--;
+        GameState.loseLife();
         soundManager.playSound("death");
     }
 
@@ -531,7 +507,7 @@ public class PacmanGame extends Application {
             gc.setFill(ghostColor);
             double ghostX = ghost.getDrawX() - TILE_SIZE * 0.5 + 2;
             double ghostY = ghost.getDrawY() - TILE_SIZE * 0.5 + 2;
-            double ghostSize = TILE_SIZE - 4;
+            double ghostSize = (double) TILE_SIZE - 4;
             gc.fillRect(ghostX, ghostY, ghostSize, ghostSize);
 
 

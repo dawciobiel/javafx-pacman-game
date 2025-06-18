@@ -1,38 +1,36 @@
 package com.dawciobiel.pacman.entities;
 
-import com.dawciobiel.pacman.PacmanGame;
 import com.dawciobiel.pacman.utils.Direction;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.ArcType;
 
-import static com.dawciobiel.pacman.PacmanGame.BOARD_COLS;
-import static com.dawciobiel.pacman.PacmanGame.BOARD_ROWS;
+import static com.dawciobiel.pacman.utils.GameConstants.BOARD_COLS;
+import static com.dawciobiel.pacman.utils.GameConstants.BOARD_ROWS;
+import static com.dawciobiel.pacman.utils.GameConstants.MOVEMENT_SPEED;
+import static com.dawciobiel.pacman.utils.GameConstants.TILE_SIZE;
 
-public class Player {
+public class Player extends GameEntity {
     private static final double ANIMATION_SPEED = 0.15;
-    private double x;
-    private double y;
-    private int tileX;
-    private int tileY;
-    private Direction direction = Direction.RIGHT;
+
     private Direction queuedDirection = null;
-    private boolean isMoving = false;
     private double moveProgress = 0.0;
     private double animationTime = 0.0;
 
     public Player(int startX, int startY) {
         this.tileX = startX;
         this.tileY = startY;
-        this.x = startX * PacmanGame.TILE_SIZE + PacmanGame.TILE_SIZE * 0.5;
-        this.y = startY * PacmanGame.TILE_SIZE + PacmanGame.TILE_SIZE * 0.5;
+        this.x = startX * TILE_SIZE + TILE_SIZE * 0.5;
+        this.y = startY * TILE_SIZE + TILE_SIZE * 0.5;
+
+        direction = Direction.RIGHT;
     }
 
     public void reset(final int newX, final int newY) {
         this.tileX = newX;
         this.tileY = newY;
-        this.x = newX * PacmanGame.TILE_SIZE + PacmanGame.TILE_SIZE * 0.5;
-        this.y = newY * PacmanGame.TILE_SIZE + PacmanGame.TILE_SIZE * 0.5;
+        this.x = newX * TILE_SIZE + TILE_SIZE * 0.5;
+        this.y = newY * TILE_SIZE + TILE_SIZE * 0.5;
         this.direction = Direction.RIGHT;
         this.queuedDirection = null;
         this.isMoving = false;
@@ -51,9 +49,9 @@ public class Player {
         double mouthAngle = 45 * Math.sin(animationTime * Math.PI * 2);
         if (mouthAngle < 0) mouthAngle = 0;
 
-        double drawX = getDrawX() - PacmanGame.TILE_SIZE * 0.5 + 2;
-        double drawY = getDrawY() - PacmanGame.TILE_SIZE * 0.5 + 2;
-        double size = PacmanGame.TILE_SIZE - 4;
+        double drawX = getDrawX() - TILE_SIZE * 0.5 + 2;
+        double drawY = getDrawY() - TILE_SIZE * 0.5 + 2;
+        double size = TILE_SIZE - 4;
 
         gc.setFill(Color.YELLOW);
 
@@ -85,7 +83,7 @@ public class Player {
         }
 
         if (isMoving) {
-            moveProgress += PacmanGame.MOVEMENT_SPEED;
+            moveProgress += MOVEMENT_SPEED;
 
             if (moveProgress >= 1.0) {
                 completeMove();
@@ -107,16 +105,16 @@ public class Player {
         tileX += direction.dx;
         tileY += direction.dy;
 
-        x = tileX * PacmanGame.TILE_SIZE + PacmanGame.TILE_SIZE * 0.5;
-        y = tileY * PacmanGame.TILE_SIZE + PacmanGame.TILE_SIZE * 0.5;
+        x = tileX * TILE_SIZE + TILE_SIZE * 0.5;
+        y = tileY * TILE_SIZE + TILE_SIZE * 0.5;
     }
 
     private void updateInterpolatedPosition() {
-        double startX = tileX * PacmanGame.TILE_SIZE + PacmanGame.TILE_SIZE * 0.5;
-        double startY = tileY * PacmanGame.TILE_SIZE + PacmanGame.TILE_SIZE * 0.5;
+        double startX = tileX * TILE_SIZE + TILE_SIZE * 0.5;
+        double startY = tileY * TILE_SIZE + TILE_SIZE * 0.5;
 
-        double targetX = startX + direction.dx * PacmanGame.TILE_SIZE;
-        double targetY = startY + direction.dy * PacmanGame.TILE_SIZE;
+        double targetX = startX + direction.dx * TILE_SIZE;
+        double targetY = startY + direction.dy * TILE_SIZE;
 
         x = startX + (targetX - startX) * moveProgress;
         y = startY + (targetY - startY) * moveProgress;
@@ -136,10 +134,10 @@ public class Player {
     private void handleTunnels() {
         if (tileX < 0) {
             tileX = BOARD_COLS - 1;
-            x = tileX * PacmanGame.TILE_SIZE + PacmanGame.TILE_SIZE * 0.5;
+            x = tileX * TILE_SIZE + TILE_SIZE * 0.5;
         } else if (tileX >= BOARD_COLS) {
             tileX = 0;
-            x = tileX * PacmanGame.TILE_SIZE + PacmanGame.TILE_SIZE * 0.5;
+            x = tileX * TILE_SIZE + TILE_SIZE * 0.5;
         }
     }
 
@@ -151,23 +149,5 @@ public class Player {
         return !isMoving;
     }
 
-    public double getDrawX() {
-        return x;
-    }
 
-    public double getDrawY() {
-        return y;
-    }
-
-    public int getTileX() {
-        return tileX;
-    }
-
-    public int getTileY() {
-        return tileY;
-    }
-
-    public Direction getDirection() {
-        return direction;
-    }
 }

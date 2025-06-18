@@ -39,7 +39,7 @@ tasks.withType<JavaCompile> {
 
 application {
     mainModule.set("com.dawciobiel.pacman")
-    mainClass.set("com.dawciobiel.pacman.PacmanGame")
+    mainClass.set("com.dawciobiel.pacman.GameEngine")
 }
 
 // JavaFX version

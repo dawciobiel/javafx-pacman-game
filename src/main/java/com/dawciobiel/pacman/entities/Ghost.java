@@ -1,6 +1,5 @@
 package com.dawciobiel.pacman.entities;
 
-import com.dawciobiel.pacman.PacmanGame;
 import com.dawciobiel.pacman.utils.Direction;
 import com.dawciobiel.pacman.utils.GhostMode;
 import javafx.scene.paint.Color;
@@ -9,27 +8,31 @@ import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.dawciobiel.pacman.PacmanGame.BOARD_COLS;
-import static com.dawciobiel.pacman.PacmanGame.BOARD_ROWS;
-import static com.dawciobiel.pacman.PacmanGame.SCATTER_TARGETS;
+import static com.dawciobiel.pacman.utils.GameConstants.BOARD_COLS;
+import static com.dawciobiel.pacman.utils.GameConstants.BOARD_ROWS;
+import static com.dawciobiel.pacman.utils.GameConstants.MOVEMENT_SPEED;
+import static com.dawciobiel.pacman.utils.GameConstants.SCATTER_TARGETS;
+import static com.dawciobiel.pacman.utils.GameConstants.SHARED_RANDOM;
+import static com.dawciobiel.pacman.utils.GameConstants.TILE_SIZE;
 
-public class Ghost {
+
+public class Ghost extends GameEntity {
 
     private static final int SCATTER_DURATION = 420; // 7 sekund * 60 FPS
     private static final int CHASE_DURATION = 1200;  // 20 sekund * 60 FPS
+
     private static final int HOME_X = BOARD_COLS / 2;
     private static final int HOME_Y = BOARD_ROWS / 2;
+
     private final Color originalColor;
+
     private final List<Direction> validDirections = new ArrayList<>(4);
+
     private final int scatterTargetX;
     private final int scatterTargetY;
+
     private final int ghostIndex; // 0-3 dla różnych strategii
-    private double x;
-    private double y;
-    private int tileX;
-    private int tileY;
-    private Direction direction;
-    private boolean isMoving = false;
+
     private double moveProgress = 0.0;
     private GhostMode mode = GhostMode.SCATTER;
     private int modeTimer = 0;
@@ -38,10 +41,10 @@ public class Ghost {
     public Ghost(int startX, int startY, Color color) {
         this.tileX = startX;
         this.tileY = startY;
-        this.x = startX * PacmanGame.TILE_SIZE + PacmanGame.TILE_SIZE * 0.5;
-        this.y = startY * PacmanGame.TILE_SIZE + PacmanGame.TILE_SIZE * 0.5;
+        this.x = startX * TILE_SIZE + TILE_SIZE * 0.5;
+        this.y = startY * TILE_SIZE + TILE_SIZE * 0.5;
         this.originalColor = color;
-        this.direction = Direction.values()[PacmanGame.SHARED_RANDOM.nextInt(4)];
+        this.direction = Direction.values()[SHARED_RANDOM.nextInt(4)];
         // Przypisz indeks na podstawie koloru
         if (color.equals(Color.RED)) this.ghostIndex = 0;
         else if (color.equals(Color.PINK)) this.ghostIndex = 1;
@@ -51,7 +54,6 @@ public class Ghost {
         // Przypisz cel scatter
         this.scatterTargetX = SCATTER_TARGETS[ghostIndex][0];
         this.scatterTargetY = SCATTER_TARGETS[ghostIndex][1];
-
     }
 
     // Metoda do zarządzania stanami
@@ -192,12 +194,11 @@ public class Ghost {
         }
     }
 
-
     public void respawn(int newX, int newY) {
         this.tileX = newX;
         this.tileY = newY;
-        this.x = newX * PacmanGame.TILE_SIZE + PacmanGame.TILE_SIZE * 0.5;
-        this.y = newY * PacmanGame.TILE_SIZE + PacmanGame.TILE_SIZE * 0.5;
+        this.x = newX * TILE_SIZE + TILE_SIZE * 0.5;
+        this.y = newY * TILE_SIZE + TILE_SIZE * 0.5;
         this.isMoving = false;
         this.moveProgress = 0.0;
         this.mode = GhostMode.SCATTER;
@@ -225,7 +226,7 @@ public class Ghost {
         }
 
         if (isMoving) {
-            moveProgress += PacmanGame.MOVEMENT_SPEED;
+            moveProgress += MOVEMENT_SPEED;
             if (moveProgress >= 1.0) {
                 completeMove();
                 moveProgress = 0.0;
@@ -271,10 +272,10 @@ public class Ghost {
             direction = bestDirection;
         } else {
             // Fallback — kontynuuj obecny kierunek lub wybierz losowy
-            if (PacmanGame.SHARED_RANDOM.nextInt(10) < 7 && validDirections.contains(direction)) {
+            if (SHARED_RANDOM.nextInt(10) < 7 && validDirections.contains(direction)) {
                 // Kontynuuj obecny kierunek
             } else {
-                direction = validDirections.get(PacmanGame.SHARED_RANDOM.nextInt(validDirections.size()));
+                direction = validDirections.get(SHARED_RANDOM.nextInt(validDirections.size()));
             }
         }
     }
@@ -290,7 +291,7 @@ public class Ghost {
         if (bestDirection != null) {
             direction = bestDirection;
         } else {
-            direction = validDirections.get(PacmanGame.SHARED_RANDOM.nextInt(validDirections.size()));
+            direction = validDirections.get(SHARED_RANDOM.nextInt(validDirections.size()));
         }
     }
 
@@ -327,16 +328,16 @@ public class Ghost {
         tileX += direction.dx;
         tileY += direction.dy;
 
-        x = tileX * PacmanGame.TILE_SIZE + PacmanGame.TILE_SIZE * 0.5;
-        y = tileY * PacmanGame.TILE_SIZE + PacmanGame.TILE_SIZE * 0.5;
+        x = tileX * TILE_SIZE + TILE_SIZE * 0.5;
+        y = tileY * TILE_SIZE + TILE_SIZE * 0.5;
     }
 
     private void updateInterpolatedPosition() {
-        double startX = tileX * PacmanGame.TILE_SIZE + PacmanGame.TILE_SIZE * 0.5;
-        double startY = tileY * PacmanGame.TILE_SIZE + PacmanGame.TILE_SIZE * 0.5;
+        double startX = tileX * TILE_SIZE + TILE_SIZE * 0.5;
+        double startY = tileY * TILE_SIZE + TILE_SIZE * 0.5;
 
-        double targetX = startX + direction.dx * PacmanGame.TILE_SIZE;
-        double targetY = startY + direction.dy * PacmanGame.TILE_SIZE;
+        double targetX = startX + direction.dx * TILE_SIZE;
+        double targetY = startY + direction.dy * TILE_SIZE;
 
         x = startX + (targetX - startX) * moveProgress;
         y = startY + (targetY - startY) * moveProgress;
@@ -356,10 +357,10 @@ public class Ghost {
     private void handleTunnels() {
         if (tileX < 0) {
             tileX = BOARD_COLS - 1;
-            x = tileX * PacmanGame.TILE_SIZE + PacmanGame.TILE_SIZE * 0.5;
+            x = tileX * TILE_SIZE + TILE_SIZE * 0.5;
         } else if (tileX >= BOARD_COLS) {
             tileX = 0;
-            x = tileX * PacmanGame.TILE_SIZE + PacmanGame.TILE_SIZE * 0.5;
+            x = tileX * TILE_SIZE + TILE_SIZE * 0.5;
         }
     }
 
@@ -369,22 +370,6 @@ public class Ghost {
 
     public void setMode(final GhostMode newMode) {
         this.mode = newMode;
-    }
-
-    public double getDrawX() {
-        return x;
-    }
-
-    public double getDrawY() {
-        return y;
-    }
-
-    public int getTileX() {
-        return tileX;
-    }
-
-    public int getTileY() {
-        return tileY;
     }
 
     public Color getColor() {

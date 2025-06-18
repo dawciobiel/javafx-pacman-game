@@ -20,4 +20,10 @@ module com.dawciobiel.pacman {
     opens com.dawciobiel.pacman.utils to javafx.fxml;
     exports com.dawciobiel.pacman.sound;
     opens com.dawciobiel.pacman.sound to javafx.fxml;
+
+    exports com.dawciobiel.pacman.entities;
+    exports com.dawciobiel.pacman.game;
+    exports com.dawciobiel.pacman.input;
+    exports com.dawciobiel.pacman.level;
+    exports com.dawciobiel.pacman.rendering;
 }

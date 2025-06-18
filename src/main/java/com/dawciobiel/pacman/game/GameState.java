@@ -9,10 +9,10 @@ import com.dawciobiel.pacman.utils.GameConstants;
 public class GameState {
 
     // === STAN GRY ===
-    private int score;
-    private int lives;
-    private boolean gameOver;
-    private boolean gameWon;
+    public static int score;
+    public static int lives;
+    public static boolean gameOver;
+    public boolean gameWon;
 
     // === POWER PELLET ===
     private boolean isPowerPelletActive;
@@ -27,30 +27,35 @@ public class GameState {
     }
 
     /**
+     * Dodaje punkty do wyniku.
+     *
+     * @param points liczba punktów do dodania
+     */
+    public static void addScore(int points) {
+        score += points;
+    }
+
+    // === METODY BIZNESOWE ===
+    public static void loseLife() {
+        lives--;
+    }
+
+    /**
      * Resetuje stan gry do wartości początkowych.
      */
     public void reset() {
-        this.score = GameConstants.INITIAL_SCORE;
-        this.lives = GameConstants.INITIAL_LIVES;
-        this.gameOver = false;
+        score = GameConstants.INITIAL_SCORE;
+        lives = GameConstants.INITIAL_LIVES;
+        gameOver = false;
         this.gameWon = false;
         this.isPowerPelletActive = false;
         this.powerPelletStartTime = 0;
         this.ghostMultiplier = GameConstants.INITIAL_GHOST_MULTIPLIER;
     }
 
-    // === METODY BIZNESOWE ===
-
-    /**
-     * Dodaje punkty do wyniku.
-     * @param points liczba punktów do dodania
-     */
-    public void addScore(int points) {
-        this.score += points;
-    }
-
     /**
      * Dodaje punkty za zjedzenie ducha z aktualnym mnożnikiem.
+     *
      * @return liczba punktów które zostały dodane
      */
     public int addGhostScore() {
@@ -61,20 +66,8 @@ public class GameState {
     }
 
     /**
-     * Odbiera jedno życie.
-     * @return true jeśli gracz nadal ma życia, false jeśli gra się kończy
-     */
-    public boolean loseLife() {
-        lives--;
-        if (lives <= 0) {
-            gameOver = true;
-            return false;
-        }
-        return true;
-    }
-
-    /**
      * Aktywuje power pellet.
+     *
      * @param currentTime aktualny czas systemowy w nanosekundach
      */
     public void activatePowerPellet(long currentTime) {
@@ -84,13 +77,13 @@ public class GameState {
     }
 
     /**
-     * Sprawdza czy power pellet wygasł i go dezaktywuje jeśli tak.
+     * Sprawdza, czy power pellet wygasł i go dezaktywuje, jeśli tak.
+     *
      * @param currentTime aktualny czas systemowy w nanosekundach
      * @return true jeśli power pellet właśnie wygasł, false w przeciwnym razie
      */
     public boolean checkAndDeactivatePowerPellet(long currentTime) {
-        if (isPowerPelletActive &&
-                currentTime - powerPelletStartTime > GameConstants.POWER_PELLET_DURATION_NANOS) {
+        if (isPowerPelletActive && currentTime - powerPelletStartTime > GameConstants.POWER_PELLET_DURATION_NANOS) {
 
             isPowerPelletActive = false;
             ghostMultiplier = GameConstants.INITIAL_GHOST_MULTIPLIER;
@@ -116,6 +109,7 @@ public class GameState {
 
     /**
      * Sprawdza czy gra powinna się skończyć (wygrana lub przegrana).
+     *
      * @return true jeśli gra się skończyła
      */
     public boolean isGameFinished() {
@@ -128,17 +122,35 @@ public class GameState {
         return score;
     }
 
-    public int getLives() {
+    public void setScore(int score) {
+        GameState.score = score;
+    }
+
+    public static int getLives() {
         return lives;
+    }
+
+    public void setLives(int lives) {
+        GameState.lives = lives;
     }
 
     public boolean isGameOver() {
         return gameOver;
     }
 
+    public void setGameOver(boolean gameOver) {
+        GameState.gameOver = gameOver;
+    }
+
     public boolean isGameWon() {
         return gameWon;
     }
+
+    public void setGameWon(boolean gameWon) {
+        this.gameWon = gameWon;
+    }
+
+    // === SETTERY (głównie do testów) ===
 
     public boolean isPowerPelletActive() {
         return isPowerPelletActive;
@@ -154,6 +166,7 @@ public class GameState {
 
     /**
      * Zwraca czas pozostały do końca działania power pelleta w milisekundach.
+     *
      * @param currentTime aktualny czas systemowy w nanosekundach
      * @return czas pozostały w milisekundach, 0 jeśli power pellet nie jest aktywny
      */
@@ -168,27 +181,8 @@ public class GameState {
         return Math.max(0, remainingNanos / 1_000_000L); // konwersja na milisekundy
     }
 
-    // === SETTERY (głównie do testów) ===
-
-    public void setScore(int score) {
-        this.score = score;
-    }
-
-    public void setLives(int lives) {
-        this.lives = lives;
-    }
-
-    public void setGameOver(boolean gameOver) {
-        this.gameOver = gameOver;
-    }
-
-    public void setGameWon(boolean gameWon) {
-        this.gameWon = gameWon;
-    }
-
     @Override
     public String toString() {
-        return String.format("GameState{score=%d, lives=%d, gameOver=%s, gameWon=%s, powerPelletActive=%s}",
-                score, lives, gameOver, gameWon, isPowerPelletActive);
+        return String.format("GameState{score=%d, lives=%d, gameOver=%s, gameWon=%s, powerPelletActive=%s}", score, lives, gameOver, gameWon, isPowerPelletActive);
     }
 }
