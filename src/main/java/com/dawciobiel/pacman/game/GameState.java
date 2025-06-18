@@ -12,7 +12,7 @@ public class GameState {
     public static int score;
     public static int lives;
     public static boolean gameOver;
-    public boolean gameWon;
+    public static boolean gameWon = false;
 
     // === POWER PELLET ===
     private boolean isPowerPelletActive;

@@ -37,8 +37,10 @@ public class CollisionDetector {
             } else if (ghost.getMode() != GhostMode.DEAD) { // Nie zabijaj, jeśli duch jest martwy
                 gameEngine.executePacmanIsDead();
                 if (GameState.lives <= 0) {
-                    boolean shouldContinueTheGame = GameState.gameOver;
+                    GameState.gameOver = true;
+                    boolean shouldContinueTheGame = false;
                     gameEngine.executePacmanIsDeadAndNoMoreLives(shouldContinueTheGame, "game_over");
+
                     return true;
                 } else {
                     // Restart pozycji
