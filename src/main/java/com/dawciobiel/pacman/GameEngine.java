@@ -7,9 +7,9 @@ import com.dawciobiel.pacman.entities.Player;
 import com.dawciobiel.pacman.entities.PowerPellet;
 import com.dawciobiel.pacman.game.CollisionDetector;
 import com.dawciobiel.pacman.game.GameState;
+import com.dawciobiel.pacman.input.InputHandler;
 import com.dawciobiel.pacman.level.MazeGenerator;
 import com.dawciobiel.pacman.sound.SoundManager;
-import com.dawciobiel.pacman.utils.Direction;
 import com.dawciobiel.pacman.utils.GameConstants;
 import com.dawciobiel.pacman.utils.GhostMode;
 import com.dawciobiel.pacman.utils.Point;
@@ -18,7 +18,6 @@ import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
-import javafx.scene.input.KeyCode;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.ArcType;
@@ -309,7 +308,8 @@ public class GameEngine extends Application {
         root.setCenter(canvas);
 
         Scene scene = new Scene(root, BOARD_WIDTH, BOARD_HEIGHT);
-        scene.setOnKeyPressed(e -> handleKeyPress(e.getCode()));
+        scene.setOnKeyPressed(e -> InputHandler.handleKeyPress(e.getCode(), pacman::queueDirection, this::restartGame, soundManager));
+
 
         primaryStage.setTitle("Pacman Game - by dawciobiel");
         primaryStage.setScene(scene);
@@ -321,32 +321,6 @@ public class GameEngine extends Application {
         initializeGame();
         soundManager = SoundManager.getInstance();
         startGameLoop();
-    }
-
-    private void handleKeyPress(final KeyCode keyCode) {
-        if (GameState.gameOver || GameState.gameWon) {
-            if (keyCode == KeyCode.R) {
-                restartGame();
-            }
-            return;
-        }
-
-        if (keyCode == KeyCode.M) {
-            soundManager.setSoundEnabled(!soundManager.isSoundEnabled());
-            return;
-        }
-
-        Direction newDirection = switch (keyCode) {
-            case UP, W -> Direction.UP;
-            case DOWN, S -> Direction.DOWN;
-            case LEFT, A -> Direction.LEFT;
-            case RIGHT, D -> Direction.RIGHT;
-            default -> null;
-        };
-
-        if (newDirection != null) {
-            pacman.queueDirection(newDirection);
-        }
     }
 
     private void restartGame() {
