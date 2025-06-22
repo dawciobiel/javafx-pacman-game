@@ -21,14 +21,17 @@ public class InputHandler {
         if (GameState.gameOver || GameState.gameWon) {
             if (keyCode == KeyCode.R) {
                 gameRestarter.run();
+
                 return true;
             }
+
             return false;
         }
 
         // Obsługa wyciszenia/włączenia dźwięku
         if (keyCode == KeyCode.M) {
             soundManager.setSoundEnabled(!soundManager.isSoundEnabled());
+
             return true;
         }
 
@@ -43,6 +46,7 @@ public class InputHandler {
 
         if (newDirection != null) {
             pacmanDirectionSetter.setDirection(newDirection);
+
             return true;
         }
 

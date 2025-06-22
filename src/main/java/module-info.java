@@ -26,4 +26,5 @@ module com.dawciobiel.pacman {
     exports com.dawciobiel.pacman.input;
     exports com.dawciobiel.pacman.level;
     exports com.dawciobiel.pacman.rendering;
+    exports com.dawciobiel.pacman.animation;
 }
