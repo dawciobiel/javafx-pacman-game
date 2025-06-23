@@ -1,6 +1,13 @@
 package com.dawciobiel.pacman.game;
 
+import com.dawciobiel.pacman.entities.Field;
+import com.dawciobiel.pacman.entities.Food;
+import com.dawciobiel.pacman.entities.Ghost;
+import com.dawciobiel.pacman.entities.Player;
+import com.dawciobiel.pacman.entities.PowerPellet;
 import com.dawciobiel.pacman.utils.GameConstants;
+
+import java.util.List;
 
 /**
  * Klasa zarządzająca stanem gry Pacman.
@@ -8,16 +15,23 @@ import com.dawciobiel.pacman.utils.GameConstants;
  */
 public class GameState {
 
-    // === STAN GRY ===
+    // === GAME STATE ===
     public static int score;
     public static int lives;
     public static boolean gameOver;
     public static boolean gameWon = false;
 
+    public static Field[][] fields;
+
+    public static Player pacman;
+    public static List<Ghost> ghosts;
+    public static List<Food> foods;
+    public static List<PowerPellet> powerPellets;
+
     // === POWER PELLET ===
     private boolean isPowerPelletActive;
     private long powerPelletStartTime;
-    private int ghostMultiplier;
+    public static int ghostMultiplier = 1; // Mnożnik punktów za duchy. Zmienia po aktywacji power-up-ów
 
     /**
      * Konstruktor inicjalizujący stan gry z domyślnymi wartościami.
@@ -35,9 +49,17 @@ public class GameState {
         score += points;
     }
 
-    // === METODY BIZNESOWE ===
+    // === BUSINESS METHODS ===
     public static void loseLife() {
         lives--;
+    }
+
+    public static int getLives() {
+        return lives;
+    }
+
+    public void setLives(int lives) {
+        GameState.lives = lives;
     }
 
     /**
@@ -101,6 +123,8 @@ public class GameState {
         this.ghostMultiplier = GameConstants.INITIAL_GHOST_MULTIPLIER;
     }
 
+    // === GETTERY ===
+
     /**
      * Kończy grę jako wygraną.
      */
@@ -117,22 +141,12 @@ public class GameState {
         return gameOver || gameWon;
     }
 
-    // === GETTERY ===
-
     public int getScore() {
         return score;
     }
 
     public void setScore(int score) {
         GameState.score = score;
-    }
-
-    public static int getLives() {
-        return lives;
-    }
-
-    public void setLives(int lives) {
-        GameState.lives = lives;
     }
 
     public boolean isGameOver() {
@@ -148,10 +162,10 @@ public class GameState {
     }
 
     public void setGameWon(boolean gameWon) {
-        this.gameWon = gameWon;
+        GameState.gameWon = gameWon;
     }
 
-    // === SETTER (głównie do testów) ===
+    // === SETTER ===
 
     public boolean isPowerPelletActive() {
         return isPowerPelletActive;

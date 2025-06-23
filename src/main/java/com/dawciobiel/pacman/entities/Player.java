@@ -62,7 +62,7 @@ public class Player extends GameEntity {
         }
     }
 
-    public void update(boolean[][] walls) {
+    public void update(Field[][] fields) {
         if (isMoving) {
             animationTime += ANIMATION_SPEED;
             if (animationTime >= 1.0) {
@@ -71,14 +71,14 @@ public class Player extends GameEntity {
         }
 
         if (queuedDirection != null && !isMoving) {
-            if (canMove(queuedDirection, walls)) {
+            if (canMove(queuedDirection, fields)) {
                 direction = queuedDirection;
                 queuedDirection = null;
                 startMoving();
             }
         }
 
-        if (!isMoving && canMove(direction, walls)) {
+        if (!isMoving && canMove(direction, fields)) {
             startMoving();
         }
 
@@ -120,15 +120,18 @@ public class Player extends GameEntity {
         y = startY + (targetY - startY) * moveProgress;
     }
 
-    private boolean canMove(Direction dir, boolean[][] walls) {
+    private boolean canMove(Direction dir, Field[][] fields) {
         int nextX = tileX + dir.dx;
         int nextY = tileY + dir.dy;
 
-        if (nextX < 0 || nextX >= walls.length || nextY < 0 || nextY >= walls[0].length) {
-            return (nextX < 0 || nextX >= walls.length) && nextY == BOARD_ROWS / 2;
+        if (nextX < 0 || nextX >= fields.length || nextY < 0 || nextY >= fields[0].length) {
+            return (nextX < 0 || nextX >= fields.length) && nextY == BOARD_ROWS / 2;
         }
 
-        return !walls[nextX][nextY];
+        Field field = fields[nextX][nextY];
+        boolean fieldType = field.getType() == FieldType.WALL;
+
+        return !fieldType;
     }
 
     private void handleTunnels() {

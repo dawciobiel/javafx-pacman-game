@@ -151,7 +151,7 @@ public class Ghost extends GameEntity {
     }
 
     // Metoda do ruchu w kierunku celu
-    private Direction getBestDirectionToTarget(int[] target, boolean[][] walls) {
+    private Direction getBestDirectionToTarget(int[] target, Field[][] fields) {
         if (target == null) return null;
 
         Direction bestDirection = direction;
@@ -163,7 +163,7 @@ public class Ghost extends GameEntity {
                 continue;
             }
 
-            if (canMove(dir, walls)) {
+            if (canMove(dir, fields)) {
                 int nextX = tileX + dir.dx;
                 int nextY = tileY + dir.dy;
                 double distance = Math.sqrt((nextX - target[0]) * (nextX - target[0]) + (nextY - target[1]) * (nextY - target[1]));
@@ -205,7 +205,7 @@ public class Ghost extends GameEntity {
         this.modeTimer = 0;
     }
 
-    public void update(boolean[][] walls, int pacmanX, int pacmanY, boolean isPowerPelletActive, Direction pacmanDirection) {
+    public void update(Field[][] fields, int pacmanX, int pacmanY, boolean isPowerPelletActive, Direction pacmanDirection) {
         if (mode != GhostMode.FRIGHTENED) {
             updateMode();
         }
@@ -219,8 +219,8 @@ public class Ghost extends GameEntity {
         }
 
         if (!isMoving) {
-            chooseDirection(walls, pacmanX, pacmanY, pacmanDirection);
-            if (canMove(direction, walls)) {
+            chooseDirection(fields, pacmanX, pacmanY, pacmanDirection);
+            if (canMove(direction, fields)) {
                 startMoving();
             }
         }
@@ -243,15 +243,15 @@ public class Ghost extends GameEntity {
         this.modeTimer = 0;
     }
 
-    private void chooseDirection(boolean[][] walls, int pacmanX, int pacmanY, Direction pacmanDirection) {
+    private void chooseDirection(Field[][] fields, int pacmanX, int pacmanY, Direction pacmanDirection) {
         validDirections.clear();
-        chooseAllValidDirections(walls);
+        chooseAllValidDirections(fields);
 
         if (!validDirections.isEmpty()) {
             if (mode == GhostMode.FRIGHTENED) {
                 chooseDirectionInFrightenedMode(pacmanX, pacmanY);
             } else {
-                chooseDirectionInScatterChaseDeadModes(walls, pacmanX, pacmanY, pacmanDirection);
+                chooseDirectionInScatterChaseDeadModes(fields, pacmanX, pacmanY, pacmanDirection);
             }
         }
     }
@@ -259,14 +259,14 @@ public class Ghost extends GameEntity {
     /**
      * Wybierz kierunek ruchu dla trybów [ Scatter, Chase, Dead modes ]
      *
-     * @param walls
+     * @param fields
      * @param pacmanX
      * @param pacmanY
      * @param pacmanDirection
      */
-    private void chooseDirectionInScatterChaseDeadModes(boolean[][] walls, int pacmanX, int pacmanY, Direction pacmanDirection) {
+    private void chooseDirectionInScatterChaseDeadModes(Field[][] fields, int pacmanX, int pacmanY, Direction pacmanDirection) {
         int[] target = getTarget(pacmanX, pacmanY, pacmanDirection);
-        Direction bestDirection = getBestDirectionToTarget(target, walls);
+        Direction bestDirection = getBestDirectionToTarget(target, fields);
 
         if (bestDirection != null && validDirections.contains(bestDirection)) {
             direction = bestDirection;
@@ -295,9 +295,9 @@ public class Ghost extends GameEntity {
         }
     }
 
-    private void chooseAllValidDirections(boolean[][] walls) {
+    private void chooseAllValidDirections(Field[][] fields) {
         for (Direction direct : Direction.values()) {
-            if (canMove(direct, walls)) {
+            if (canMove(direct, fields)) {
                 validDirections.add(direct);
             }
         }
@@ -343,15 +343,18 @@ public class Ghost extends GameEntity {
         y = startY + (targetY - startY) * moveProgress;
     }
 
-    private boolean canMove(final Direction dir, final boolean[][] walls) {
+    private boolean canMove(final Direction dir, final Field[][] fields) {
         int nextX = tileX + dir.dx;
         int nextY = tileY + dir.dy;
 
-        if (nextX < 0 || nextX >= walls.length || nextY < 0 || nextY >= walls[0].length) {
-            return (nextX < 0 || nextX >= walls.length) && nextY == BOARD_ROWS / 2;
+        if (nextX < 0 || nextX >= fields.length || nextY < 0 || nextY >= fields[0].length) {
+            return (nextX < 0 || nextX >= fields.length) && nextY == BOARD_ROWS / 2;
         }
 
-        return !walls[nextX][nextY];
+        Field field = fields[nextX][nextY];
+        FieldType fieldType = field.getType();
+
+        return !(fieldType == FieldType.WALL);
     }
 
     private void handleTunnels() {

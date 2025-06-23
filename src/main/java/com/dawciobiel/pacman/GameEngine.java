@@ -1,6 +1,8 @@
 package com.dawciobiel.pacman;
 
 
+import com.dawciobiel.pacman.entities.Field;
+import com.dawciobiel.pacman.entities.FieldType;
 import com.dawciobiel.pacman.entities.Food;
 import com.dawciobiel.pacman.entities.Ghost;
 import com.dawciobiel.pacman.entities.Player;
@@ -29,8 +31,15 @@ import java.util.Iterator;
 import java.util.List;
 
 import static com.dawciobiel.pacman.game.GameState.addScore;
+import static com.dawciobiel.pacman.game.GameState.fields;
+import static com.dawciobiel.pacman.game.GameState.foods;
+import static com.dawciobiel.pacman.game.GameState.ghosts;
 import static com.dawciobiel.pacman.game.GameState.lives;
+import static com.dawciobiel.pacman.game.GameState.powerPellets;
 import static com.dawciobiel.pacman.game.GameState.score;
+import static com.dawciobiel.pacman.game.GameState.pacman;
+import static com.dawciobiel.pacman.game.GameState.ghostMultiplier;
+
 import static com.dawciobiel.pacman.utils.GameConstants.BOARD_HEIGHT;
 import static com.dawciobiel.pacman.utils.GameConstants.BOARD_WIDTH;
 import static com.dawciobiel.pacman.utils.GameConstants.GAME_OVER_FONT;
@@ -45,17 +54,10 @@ public class GameEngine extends Application {
 
     // Bufory do wielokrotnego użytku
     public static SoundManager soundManager;
-    public static Player pacman;
-    public static List<Ghost> ghosts;
-    public static List<Food> foods;
-    public static List<PowerPellet> powerPellets;
     public static long powerPelletStartTime = 0;
     public static boolean isPowerPelletActive = false;
-    public static int ghostMultiplier = 1; // Mnożnik punktów za duchy. Zmienia po aktywacji power-up-ów
     private static AnimationTimer gameLoop;
     private static long lastUpdate = 0;
-    private static boolean[][] walls;
-
     private GraphicsContext gc;
 
     public static void main(final String[] args) {
@@ -133,8 +135,8 @@ public class GameEngine extends Application {
             powerPellets = new ArrayList<>(4);
         }
 
-        if (walls == null) {
-            walls = new boolean[GameConstants.BOARD_COLS][GameConstants.BOARD_ROWS];
+        if (fields == null) {
+            fields =  new Field[GameConstants.BOARD_COLS][GameConstants.BOARD_ROWS];
         }
         createMaze();
 
@@ -159,16 +161,16 @@ public class GameEngine extends Application {
         // Wyczyść tablicę, zamiast tworzyć nową
         for (int x = 0; x < GameConstants.BOARD_COLS; x++) {
             for (int y = 0; y < GameConstants.BOARD_ROWS; y++) {
-                walls[x][y] = true;
+                fields[x][y] = new Field(FieldType.WALL);
             }
         }
 
-        MazeGenerator generator = new MazeGenerator(walls, GameConstants.BOARD_COLS, GameConstants.BOARD_ROWS, GameConstants.SHARED_RANDOM);
+        MazeGenerator generator = new MazeGenerator(fields, GameConstants.BOARD_COLS, GameConstants.BOARD_ROWS, GameConstants.SHARED_RANDOM);
         generator.generateMaze(GameConstants.PLAYER_START_X, GameConstants.PLAYER_START_Y);
 
         int middleY = GameConstants.BOARD_ROWS / 2;
-        walls[0][middleY] = false;
-        walls[GameConstants.BOARD_COLS - 1][middleY] = false;
+        fields[0][middleY] = new Field(FieldType.EMPTY);
+        fields[GameConstants.BOARD_COLS - 1][middleY] = new Field(FieldType.EMPTY);
 
         ensureTunnelAccess(middleY);
 
@@ -178,18 +180,20 @@ public class GameEngine extends Application {
         clearArea(1, GameConstants.BOARD_ROWS - 2, 1);
 
         createOpenAreasAsCross();
+
+
     }
 
     private static void ensureTunnelAccess(final int tunnelRow) {
-        walls[1][tunnelRow] = false;
-        walls[GameConstants.BOARD_COLS - 2][tunnelRow] = false;
+        fields[1][tunnelRow] = new Field(FieldType.EMPTY);;
+        fields[GameConstants.BOARD_COLS - 2][tunnelRow] = new Field(FieldType.EMPTY);;
     }
 
     private static void clearArea(final int centerX, final int centerY, final int radius) {
         for (int x = centerX - radius; x <= centerX + radius; x++) {
             for (int y = centerY - radius; y <= centerY + radius; y++) {
                 if (x > 0 && x < GameConstants.BOARD_COLS - 1 && y > 0 && y < GameConstants.BOARD_ROWS - 1) {
-                    walls[x][y] = false;
+                    fields[x][y] = new Field(FieldType.EMPTY);;
                 }
             }
         }
@@ -202,11 +206,11 @@ public class GameEngine extends Application {
             int centerX = 3 + GameConstants.SHARED_RANDOM.nextInt(GameConstants.BOARD_COLS - 6);
             int centerY = 3 + GameConstants.SHARED_RANDOM.nextInt(GameConstants.BOARD_ROWS - 6);
 
-            walls[centerX][centerY] = false;
-            walls[centerX - 1][centerY] = false;
-            walls[centerX + 1][centerY] = false;
-            walls[centerX][centerY - 1] = false;
-            walls[centerX][centerY + 1] = false;
+            fields[centerX][centerY] = new Field(FieldType.EMPTY);
+            fields[centerX - 1][centerY] = new Field(FieldType.EMPTY);
+            fields[centerX + 1][centerY] = new Field(FieldType.EMPTY);
+            fields[centerX][centerY - 1] = new Field(FieldType.EMPTY);
+            fields[centerX][centerY + 1] = new Field(FieldType.EMPTY);
         }
     }
 
@@ -218,7 +222,10 @@ public class GameEngine extends Application {
      * @return true jeśli można umieścić jedzenie, false w przeciwnym razie
      */
     private static boolean canPlaceFood(int x, int y) {
-        return !walls[x][y] && !(x == GameConstants.PLAYER_START_X && y == GameConstants.PLAYER_START_Y);
+        Field field = fields[x][y];
+        boolean isFieldTypeWall = field.getType() == FieldType.WALL;
+
+        return !isFieldTypeWall && !(x == GameConstants.PLAYER_START_X && y == GameConstants.PLAYER_START_Y);
     }
 
     /**
@@ -277,7 +284,10 @@ public class GameEngine extends Application {
     }
 
     private static boolean isValidPowerPelletPosition(Point position) {
-        return position.x() > 0 && position.y() < GameConstants.BOARD_COLS - 1 && position.y() > 0 && position.y() < GameConstants.BOARD_ROWS - 1 && !walls[position.x()][position.y()];
+        Field field = fields[position.x()][position.y()];
+        boolean isFieldTypeWall = field.getType() == FieldType.WALL;
+
+        return position.x() > 0 && position.y() < GameConstants.BOARD_COLS - 1 && position.y() > 0 && position.y() < GameConstants.BOARD_ROWS - 1 && !isFieldTypeWall;
     }
 
     private static void addPowerPelletAt(Point position) {
@@ -365,10 +375,10 @@ public class GameEngine extends Application {
             }
         }
 
-        pacman.update(walls);
+        pacman.update(fields);
 
         for (Ghost ghost : ghosts) {
-            ghost.update(walls, pacman.getTileX(), pacman.getTileY(), isPowerPelletActive, pacman.getDirection());
+            ghost.update(fields, pacman.getTileX(), pacman.getTileY(), isPowerPelletActive, pacman.getDirection());
         }
 
         // As an optimization, check the collisions with food only when Pacman is in the center of the field
@@ -503,7 +513,7 @@ public class GameEngine extends Application {
         gc.setFill(Color.BLUE);
         for (int x = 0; x < GameConstants.BOARD_COLS; x++) {
             for (int y = 0; y < GameConstants.BOARD_ROWS; y++) {
-                if (walls[x][y]) {
+                if ( (fields[x][y]).getType() == FieldType.WALL) {
                     double drawX = x * (double) TILE_SIZE;
                     double drawY = y * (double) TILE_SIZE;
 

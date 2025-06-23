@@ -60,19 +60,19 @@ public class CollisionDetector {
     }
 
     public static void checkCollisionWithFood(GameEngine gameEngine, long currentTime) {
-        if (GameEngine.pacman.isAtTileCenter()) {
+        if (GameState.pacman.isAtTileCenter()) {
             // Check collisions with food
-            Iterator<Food> foodIterator = GameEngine.foods.iterator();
+            Iterator<Food> foodIterator = GameState.foods.iterator();
             while (foodIterator.hasNext()) {
                 Food food = foodIterator.next();
                 gameEngine.eatFood(food, foodIterator);
             }
 
             // Check collisions with power pellets
-            Iterator<PowerPellet> powerPelletIterator = GameEngine.powerPellets.iterator();
+            Iterator<PowerPellet> powerPelletIterator = GameState.powerPellets.iterator();
             while (powerPelletIterator.hasNext()) {
                 PowerPellet powerPellet = powerPelletIterator.next();
-                if (powerPellet.x() == GameEngine.pacman.getTileX() && powerPellet.y() == GameEngine.pacman.getTileY()) {
+                if (powerPellet.x() == GameState.pacman.getTileX() && powerPellet.y() == GameState.pacman.getTileY()) {
                     GameState.addScore(GameConstants.POWER_PELLET_POINTS);
                     powerPelletIterator.remove();
                     GameEngine.soundManager.playSound("power_pellet");
@@ -80,7 +80,7 @@ public class CollisionDetector {
                     // Aktywuj power pellet
                     GameEngine.isPowerPelletActive = true;
                     GameEngine.powerPelletStartTime = currentTime;
-                    GameEngine.ghostMultiplier = 1;
+                    GameState.ghostMultiplier = 1;
 
                     // Zmień tryb duchów na frightened
                     gameEngine.changeGhostsMode(GhostMode.FRIGHTENED);
