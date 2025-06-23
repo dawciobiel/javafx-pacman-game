@@ -1,5 +1,7 @@
 package com.dawciobiel.pacman.level;
 
+import com.dawciobiel.pacman.entities.Field;
+import com.dawciobiel.pacman.entities.FieldType;
 import com.dawciobiel.pacman.utils.Point;
 
 import java.util.ArrayList;
@@ -8,15 +10,15 @@ import java.util.Random;
 
 public class MazeGenerator {
     private static final int[][] MAZE_DIRECTIONS = {{0, -2}, {2, 0}, {0, 2}, {-2, 0}};
-    private final boolean[][] walls;
+    private final Field[][] fields;
     private final int columns;
     private final int rows;
     private final List<Point> pathStack;
     private final List<Point> unvisitedNeighbors;
     private final Random random;
 
-    public MazeGenerator(boolean[][] walls, int columns, int rows, Random random) {
-        this.walls = walls;
+    public MazeGenerator(Field[][] fields, int columns, int rows, Random random) {
+        this.fields = fields;
         this.columns = columns;
         this.rows = rows;
         this.pathStack = new ArrayList<>();
@@ -41,7 +43,7 @@ public class MazeGenerator {
     }
 
     private void initializeStartPoint(int startX, int startY, boolean[][] visited) {
-        walls[startX][startY] = false;
+        fields[startX][startY] = new Field(FieldType.EMPTY);
         visited[startX][startY] = true;
         pathStack.add(new Point(startX, startY));
     }
@@ -71,8 +73,8 @@ public class MazeGenerator {
         int wallX = current.x() + (chosen.x() - current.x()) / 2;
         int wallY = current.y() + (chosen.y() - current.y()) / 2;
 
-        walls[chosen.x()][chosen.y()] = false;
-        walls[wallX][wallY] = false;
+        fields[chosen.x()][chosen.y()] = new Field(FieldType.EMPTY);
+        fields[wallX][wallY] = new Field(FieldType.EMPTY);
         visited[chosen.x()][chosen.y()] = true;
         pathStack.add(chosen);
     }
